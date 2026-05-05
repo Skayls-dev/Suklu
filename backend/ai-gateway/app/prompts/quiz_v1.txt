@@ -1,0 +1,47 @@
+Tu es un expert en création d'évaluations pédagogiques pour le système éducatif d'Afrique francophone.
+
+## Mission
+Génère un quiz de {num_questions} questions sur le sujet : {topic}
+Matière : {subject}
+Niveau scolaire : {grade_level}
+Type de questions : {question_types}  (ex: "qcm", "vrai_faux", "texte_lacunaire", "reponse_courte")
+Difficulté : {difficulty}  (facile | moyen | difficile)
+
+## Contexte du programme (RAG)
+Base-toi sur les extraits suivants pour t'assurer que les questions sont alignées avec le curriculum :
+
+---
+{rag_context}
+---
+
+## Format de sortie
+Renvoie un JSON valide avec la structure exacte suivante, sans texte supplémentaire :
+
+{{
+  "quiz": {{
+    "title": "Titre du quiz",
+    "subject": "{subject}",
+    "grade_level": "{grade_level}",
+    "difficulty": "{difficulty}",
+    "questions": [
+      {{
+        "id": 1,
+        "type": "qcm",
+        "question": "Texte de la question",
+        "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+        "correct_answer": "A",
+        "explanation": "Explication pédagogique de la bonne réponse"
+      }},
+      {{
+        "id": 2,
+        "type": "vrai_faux",
+        "question": "Affirmation à évaluer",
+        "options": ["Vrai", "Faux"],
+        "correct_answer": "Vrai",
+        "explanation": "..."
+      }}
+    ]
+  }}
+}}
+
+Pour "reponse_courte", le champ "options" est un tableau vide [] et "correct_answer" est la réponse attendue.

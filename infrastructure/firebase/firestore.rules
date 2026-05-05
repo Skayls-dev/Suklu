@@ -1,0 +1,229 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Suklu Firestore Security Rules
+//
+// Role model: roles are stored as Firebase custom claims (token.role) set by
+// the onUserCreate Cloud Function. This avoids an extra Firestore read per
+// security evaluation while keeping latency low.
+//
+// Roles: student | parent | tutor | academic_staff | super_admin
+//
+// Parent–child links: student docs carry a `parentIds` string[] array.
+// The verifyParentLink Cloud Function maintains this bidirectionally.
+//
+// Content moderation: `isContentModerator` boolean custom claim on selected
+// accounts regardless of role. Set by super_admin only.
+// ─────────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return request.auth.token.role;
+    }
+
+    function isStudent()       { return role() == 'student'; }
+    function isParent()        { return role() == 'parent'; }
+    function isTutor()         { return role() == 'tutor'; }
+    function isAcademicStaff() { return role() == 'academic_staff'; }
+    function isSuperAdmin()    { return role() == 'super_admin'; }
+    function isStaff()             { return isAcademicStaff() || isSuperAdmin(); }
+    function isOwner(uid)          { return request.auth.uid == uid; }
+    function isContentModerator()  {
+      return isAuthed() && request.auth.token.get('isContentModerator', false) == true;
+    }
+
+    // Checks whether the current parent user is linked to the given studentId.
+    // Costs 1 Firestore read per evaluation — acceptable for MVP.
+    // TODO: consider custom claims for parent→child links at scale.
+    function isParentOf(studentId) {
+      let studentDoc = get(/databases/$(database)/documents/users/$(studentId));
+      return isParent()
+        && 'parentIds' in studentDoc.data
+        && request.auth.uid in studentDoc.data.parentIds;
+    }
+
+    // ── /users ────────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuthed() && (
+        isOwner(userId)
+        || isStaff()
+        || isParentOf(userId)
+        // Tutors may read any user profile (needed to display student info in
+        // session view). TODO: tighten to session-linked students post-MVP.
+        || isTutor()
+      );
+
+      // Only onUserCreate Cloud Function writes the initial document.
+      allow create: if false;
+
+      // Users may update their own profile but cannot self-escalate role or uid.
+      allow update: if isAuthed()
+        && isOwner(userId)
+        && !('role' in request.resource.data.diff(resource.data).affectedKeys())
+        && !('uid'  in request.resource.data.diff(resource.data).affectedKeys());
+
+      // Staff may also update profiles (e.g., deactivate account).
+      allow update: if isStaff();
+
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── /sessions ─────────────────────────────────────────────────────────────
+    match /sessions/{sessionId} {
+      allow read: if isAuthed() && (
+        resource.data.studentId == request.auth.uid
+        || resource.data.tutorId  == request.auth.uid
+        || isParentOf(resource.data.studentId)
+        || isStaff()
+      );
+
+      // Sessions are created exclusively by Cloud Functions (createBooking flow).
+      allow create: if false;
+
+      // Tutors may update non-structural fields (e.g., session notes).
+      allow update: if isAuthed()
+        && isTutor()
+        && resource.data.tutorId == request.auth.uid
+        && !('studentId' in request.resource.data.diff(resource.data).affectedKeys())
+        && !('tutorId'   in request.resource.data.diff(resource.data).affectedKeys())
+        && !('bookingId' in request.resource.data.diff(resource.data).affectedKeys());
+
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── /bookings ─────────────────────────────────────────────────────────────
+    match /bookings/{bookingId} {
+      allow read: if isAuthed() && (
+        resource.data.studentId == request.auth.uid
+        || resource.data.tutorId == request.auth.uid
+        || (resource.data.keys().hasAny(['parentId'])
+            && resource.data.parentId == request.auth.uid)
+        || isParentOf(resource.data.studentId)
+        || isStaff()
+      );
+
+      // All booking mutations go through the createBooking Cloud Function.
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── /payments ─────────────────────────────────────────────────────────────
+    // Payments are 100 % server-side. No client can create, modify, or delete.
+    match /payments/{paymentId} {
+      allow read: if isAuthed() && (
+        resource.data.userId == request.auth.uid
+        || isParentOf(resource.data.userId)
+        || isStaff()
+      );
+
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── /assessments ──────────────────────────────────────────────────────────
+    match /assessments/{assessmentId} {
+      allow read: if isAuthed() && (
+        resource.data.studentId == request.auth.uid
+        || isParentOf(resource.data.studentId)
+        || (isTutor() && resource.data.tutorId == request.auth.uid)
+        || isStaff()
+      );
+
+      // Students may initiate their own assessments.
+      allow create: if isAuthed()
+        && isStudent()
+        && request.resource.data.studentId == request.auth.uid;
+
+      // Assessments are immutable once created.
+      allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── /rag_documents ────────────────────────────────────────────────────────
+    // Curriculum content uploaded by staff, readable by all authenticated users.
+    match /rag_documents/{docId} {
+      allow read:   if isAuthed();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── /processed_events ─────────────────────────────────────────────────────
+    // Internal idempotency ledger — no client access whatsoever.
+    match /processed_events/{eventId} {
+      allow read:  if false;
+      allow write: if false;
+    }
+
+    // ── /ai_logs ──────────────────────────────────────────────────────────────
+    // Written exclusively by the AI Gateway service account.
+    match /ai_logs/{logId} {
+      allow read: if isStaff();
+      allow write: if false; // service account bypasses rules
+    }
+
+    // ── /platform_config ──────────────────────────────────────────────────────
+    // Single document at /platform_config/global.
+    // All authenticated users can read (needed for country/currency selectors).
+    // Only super_admin can write (via admin panel or direct update).
+    match /platform_config/{docId} {
+      allow read:   if isAuthed();
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
+    // ── /tutor_applications ───────────────────────────────────────────────────
+    match /tutor_applications/{appId} {
+      // Applicant sees own application; staff sees all.
+      allow read: if isAuthed() && (
+        resource.data.userId == request.auth.uid
+        || isStaff()
+      );
+      // Only Cloud Function (submitApplication) creates docs.
+      allow create: if false;
+      // Only staff may update (reviewApplication function calls admin SDK,
+      // which bypasses these rules — this gate protects direct client writes).
+      allow update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── /link_requests ────────────────────────────────────────────────────────
+    match /link_requests/{reqId} {
+      // Parent sees their own requests; student sees requests linking to them.
+      allow read: if isAuthed() && (
+        resource.data.parentId  == request.auth.uid
+        || resource.data.studentId == request.auth.uid
+        || isStaff()
+      );
+      // Only requestParentLink Cloud Function creates docs.
+      allow create: if false;
+      // Only verifyParentLink (admin SDK) updates; this blocks direct client writes.
+      allow update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── /flagged_content ──────────────────────────────────────────────────────
+    // Written by AI Gateway service account; reviewed by content moderators.
+    match /flagged_content/{flagId} {
+      allow read:   if isStaff() || isContentModerator();
+      allow create: if false;  // service account only
+      // Content moderators update status (reviewed_safe | reviewed_harmful).
+      allow update: if (isStaff() || isContentModerator())
+        && request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['status', 'reviewedBy', 'reviewedAt']);
+      allow delete: if isSuperAdmin();
+    }
+  }
+}

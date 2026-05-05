@@ -1,0 +1,113 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tutorId",      "order": "ASCENDING" },
+        { "fieldPath": "scheduledAt",  "order": "ASCENDING" },
+        { "fieldPath": "status",       "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId",    "order": "ASCENDING" },
+        { "fieldPath": "scheduledAt",  "order": "DESCENDING" },
+        { "fieldPath": "__name__",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tutorId",      "order": "ASCENDING" },
+        { "fieldPath": "scheduledAt",  "order": "DESCENDING" },
+        { "fieldPath": "__name__",     "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId",    "order": "ASCENDING" },
+        { "fieldPath": "startedAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tutorId",      "order": "ASCENDING" },
+        { "fieldPath": "startedAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",       "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assessments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "ai_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",       "order": "ASCENDING" },
+        { "fieldPath": "timestamp",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tutor_applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",       "order": "ASCENDING" },
+        { "fieldPath": "status",       "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tutor_applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "link_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "parentId",     "order": "ASCENDING" },
+        { "fieldPath": "studentId",    "order": "ASCENDING" },
+        { "fieldPath": "status",       "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "link_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "flagged_content",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

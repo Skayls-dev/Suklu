@@ -1,0 +1,53 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../auth/presentation/auth_providers.dart';
+import '../data/booking_repository.dart';
+import '../domain/booking_model.dart';
+
+final studentBookingsProvider = StreamProvider.autoDispose<List<BookingModel>>((ref) {
+  final user = ref.watch(authStateNotifierProvider).value;
+  if (user == null) return const Stream.empty();
+  return ref.watch(bookingRepositoryProvider).watchBookingsForStudent(user.uid);
+});
+
+final tutorBookingsProvider = StreamProvider.autoDispose<List<BookingModel>>((ref) {
+  final user = ref.watch(authStateNotifierProvider).value;
+  if (user == null) return const Stream.empty();
+  return ref.watch(bookingRepositoryProvider).watchBookingsForTutor(user.uid);
+});
+
+// Booking creation state
+final bookingCreationProvider =
+    AsyncNotifierProvider.autoDispose<BookingCreationNotifier, void>(
+  BookingCreationNotifier.new,
+);
+
+class BookingCreationNotifier extends AutoDisposeAsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  Future<String> createBooking({
+    required String   tutorId,
+    required String   subjectId,
+    required DateTime scheduledAt,
+    required int      durationMinutes,
+    String?           studentId,
+  }) async {
+    state = const AsyncLoading();
+    final repo = ref.read(bookingRepositoryProvider);
+    try {
+      final id = await repo.createBooking(
+        tutorId:         tutorId,
+        subjectId:       subjectId,
+        scheduledAt:     scheduledAt,
+        durationMinutes: durationMinutes,
+        studentId:       studentId,
+      );
+      state = const AsyncData(null);
+      return id;
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      rethrow;
+    }
+  }
+}
