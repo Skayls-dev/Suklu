@@ -18,7 +18,10 @@ class TutorDashboard extends ConsumerWidget {
         backgroundColor: AppColors.tutorAccent,
         title: Text('Bonjour, ${user?.displayName ?? 'Tuteur'} 👋'),
         actions: [
-          IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => context.go('/tutor/booking'),
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -45,19 +48,19 @@ class TutorDashboard extends ConsumerWidget {
               icon:    Icons.quiz_outlined,
               title:   'Générer un quiz',
               color:   AppColors.tutorAccent,
-              onTap:   () {/* TODO: quiz generator */},
+              onTap:   () => context.go('/tutor/ai-tutor'),
             ),
             _ActionTile(
               icon:    Icons.schedule_outlined,
               title:   'Gérer mon agenda',
               color:   AppColors.primary,
-              onTap:   () {/* TODO: schedule management */},
+              onTap:   () => context.go('/tutor/booking'),
             ),
             _ActionTile(
               icon:    Icons.video_call_outlined,
               title:   'Démarrer une session',
               color:   AppColors.info,
-              onTap:   () {/* TODO: create session */},
+              onTap:   () => context.go('/tutor/session/demo'),
             ),
 
             AppSpacing.gapLg,

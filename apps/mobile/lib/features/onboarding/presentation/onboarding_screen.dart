@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/providers/firebase_providers.dart';
 import '../../auth/domain/user_role.dart';
 import '../../auth/presentation/auth_providers.dart';
 
@@ -25,7 +26,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   UserRole? _selectedRole;
-  int       _step = 0;
+  bool      _savingRole = false;
 
   @override
   Widget build(BuildContext context) {
@@ -88,20 +89,46 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const Spacer(),
 
               ElevatedButton(
-                onPressed: _selectedRole == null
+                onPressed: (_selectedRole == null || _savingRole)
                     ? null
-                    : () {
-                        // TODO: call a Cloud Function to update the user's role
-                        // and navigate to the appropriate dashboard
-                        final home = switch (_selectedRole) {
-                          UserRole.student => '/student/dashboard',
-                          UserRole.parent  => '/parent/dashboard',
-                          UserRole.tutor   => '/tutor/dashboard',
-                          _                => '/student/dashboard',
-                        };
-                        context.go(home);
+                    : () async {
+                        setState(() => _savingRole = true);
+                        try {
+                          await ref.read(firebaseFunctionsProvider)
+                              .httpsCallable('updateMyRole')
+                              .call<Map<String, dynamic>>({
+                            'role': _selectedRole!.toFirestoreString(),
+                          });
+
+                          ref.invalidate(authStateNotifierProvider);
+
+                          if (!mounted) return;
+                          final home = switch (_selectedRole) {
+                            UserRole.student => '/diagnostic', // diagnostic before dashboard
+                            UserRole.parent  => '/parent/dashboard',
+                            UserRole.tutor   => '/tutor/dashboard',
+                            _                => '/student/dashboard',
+                          };
+                          context.go(home);
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Erreur mise à jour du rôle: $e'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        } finally {
+                          if (mounted) setState(() => _savingRole = false);
+                        }
                       },
-                child: const Text('Continuer'),
+                child: _savingRole
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text('Continuer'),
               ),
               AppSpacing.gapMd,
             ],

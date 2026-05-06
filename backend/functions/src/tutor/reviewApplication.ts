@@ -18,7 +18,7 @@ import { TutorApplicationStatus, UserRole } from '../shared/types';
 //
 // Both stages can be performed by staff, or by different staff members.
 // ─────────────────────────────────────────────────────────────────────────────
-export const reviewApplication = onCall(async (request) => {
+export const reviewApplication = onCall({ cors: true, region: 'europe-west1' }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Authentification requise');
   }

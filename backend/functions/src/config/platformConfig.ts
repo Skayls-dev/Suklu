@@ -96,7 +96,7 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
 // ── Callable: getConfig ───────────────────────────────────────────────────────
 // Authenticated clients call this to get the platform config (e.g., to display
 // supported countries in the registration form).
-export const getConfig = onCall(async (request) => {
+export const getConfig = onCall({ cors: true, region: 'europe-west1' }, async (request) => {
   if (!request.auth) return { error: 'unauthenticated' };
   const config = await getPlatformConfig();
   // Strip server-only fields before sending to client

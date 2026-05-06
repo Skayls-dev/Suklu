@@ -43,7 +43,7 @@ class ParentDashboard extends ConsumerWidget {
                     style: ElevatedButton.styleFrom(backgroundColor: AppColors.parentAccent),
                     icon: const Icon(Icons.link),
                     label: const Text('Lier un compte'),
-                    onPressed: () {/* TODO: link child account flow */},
+                    onPressed: () => context.push('/parent/link-request'),
                   ),
                 ],
               ),

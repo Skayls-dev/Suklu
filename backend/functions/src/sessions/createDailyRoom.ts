@@ -17,7 +17,7 @@ import { UserRole } from '../shared/types';
 //                Best for tutors with regular weekly students (same link).
 // ─────────────────────────────────────────────────────────────────────────────
 export const createDailyRoom = onCall(
-  { secrets: ['DAILY_API_KEY'] },
+  { secrets: ['DAILY_API_KEY'], cors: true, region: 'europe-west1' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Authentification requise');

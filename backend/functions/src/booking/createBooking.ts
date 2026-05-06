@@ -20,7 +20,7 @@ import { calculatePrice }       from '../pricing/pricingEngine';
 //   • parents booking on behalf of unlinked students
 // ─────────────────────────────────────────────────────────────────────────────
 export const createBooking = onCall(
-  { enforceAppCheck: false }, // TODO: enable App Check before production
+  { enforceAppCheck: false, cors: true, region: 'europe-west1' },
   async (request) => {
     // ── Auth guard ──────────────────────────────────────────────────────────
     if (!request.auth) {

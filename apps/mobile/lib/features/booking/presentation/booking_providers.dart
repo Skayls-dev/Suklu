@@ -4,16 +4,17 @@ import '../../auth/presentation/auth_providers.dart';
 import '../data/booking_repository.dart';
 import '../domain/booking_model.dart';
 
-final studentBookingsProvider = StreamProvider.autoDispose<List<BookingModel>>((ref) {
+final userBookingsProvider = StreamProvider.autoDispose<List<BookingModel>>((ref) {
   final user = ref.watch(authStateNotifierProvider).value;
   if (user == null) return const Stream.empty();
-  return ref.watch(bookingRepositoryProvider).watchBookingsForStudent(user.uid);
-});
 
-final tutorBookingsProvider = StreamProvider.autoDispose<List<BookingModel>>((ref) {
-  final user = ref.watch(authStateNotifierProvider).value;
-  if (user == null) return const Stream.empty();
-  return ref.watch(bookingRepositoryProvider).watchBookingsForTutor(user.uid);
+  final repo = ref.watch(bookingRepositoryProvider);
+  return switch (user.role.toFirestoreString()) {
+    'student' => repo.watchBookingsForStudent(user.uid),
+    'tutor' => repo.watchBookingsForTutor(user.uid),
+    'parent' => repo.watchBookingsForParent(user.uid),
+    _ => const Stream.empty(),
+  };
 });
 
 // Booking creation state

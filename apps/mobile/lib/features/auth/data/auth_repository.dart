@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../core/providers/firebase_providers.dart';
 import '../domain/auth_user.dart';
@@ -68,11 +69,54 @@ class AuthRepository {
   }
 
   // ── Sign out ───────────────────────────────────────────────────────────────
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() async {
+    await GoogleSignIn().signOut();
+    await _auth.signOut();
+  }
 
   // ── Password reset ─────────────────────────────────────────────────────────
   Future<void> sendPasswordResetEmail(String email) =>
       _auth.sendPasswordResetEmail(email: email);
+
+  // ── Google Sign-In ─────────────────────────────────────────────────────────
+  Future<AuthUser> signInWithGoogle() async {
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) throw Exception('Connexion Google annulée');
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken:     googleAuth.idToken,
+    );
+    final userCred = await _auth.signInWithCredential(credential);
+    await userCred.user!.getIdToken(true);
+    // Ensure Firestore profile exists (first Google sign-in)
+    final doc = await _firestore.collection('users').doc(userCred.user!.uid).get();
+    if (!doc.exists) {
+      await Future.delayed(const Duration(seconds: 2)); // wait for onUserCreate trigger
+      await userCred.user!.getIdToken(true);
+    }
+    return _fetchProfile(userCred.user!.uid);
+  }
+
+  // ── Phone: send OTP ────────────────────────────────────────────────────────
+  Future<ConfirmationResult> sendPhoneOtp(String phoneNumber) {
+    return _auth.signInWithPhoneNumber(phoneNumber);
+  }
+
+  // ── Phone: verify OTP ─────────────────────────────────────────────────────
+  Future<AuthUser> verifyPhoneOtp({
+    required ConfirmationResult confirmationResult,
+    required String smsCode,
+  }) async {
+    final userCred = await confirmationResult.confirm(smsCode);
+    await userCred.user!.getIdToken(true);
+    final doc = await _firestore.collection('users').doc(userCred.user!.uid).get();
+    if (!doc.exists) {
+      await Future.delayed(const Duration(seconds: 2));
+      await userCred.user!.getIdToken(true);
+    }
+    return _fetchProfile(userCred.user!.uid);
+  }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   Future<AuthUser> _fetchProfile(String uid) async {

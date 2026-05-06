@@ -4,7 +4,10 @@ import * as admin from 'firebase-admin';
 admin.initializeApp();
 
 export { onUserCreate }       from './auth/onUserCreate';
+export { updateMyRole }       from './auth/updateMyRole';
 export { createBooking }      from './booking/createBooking';
+export { updateBookingStatus } from './booking/updateBookingStatus';
+export { initiatePayment }    from './payments/initiatePayment';
 export { flutterwaveWebhook } from './payments/flutterwaveWebhook';
 export { orangeMoneyWebhook } from './payments/orangeMoneyWebhook';
 export { waveWebhook }        from './payments/waveWebhook';

@@ -12,7 +12,7 @@ import { ParentLinkRequest } from '../shared/types';
 // Admin verification: prevents fraudulent links (e.g., a stranger linking
 // to a minor's account without consent).
 // ─────────────────────────────────────────────────────────────────────────────
-export const requestParentLink = onCall(async (request) => {
+export const requestParentLink = onCall({ cors: true, region: 'europe-west1' }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Authentification requise');
   }

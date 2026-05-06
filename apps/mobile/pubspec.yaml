@@ -32,6 +32,15 @@ dependencies:
   # ── HTTP ─────────────────────────────────────────────────────────────────
   dio:                  ^5.7.0
 
+  # ── Google Sign-In ────────────────────────────────────────────────────────
+  google_sign_in:       ^6.2.2
+
+  # ── WebView (Daily.co sessions) ───────────────────────────────────────────
+  webview_flutter:      ^4.10.0
+
+  # ── URL Launcher (payment redirects) ─────────────────────────────────────
+  url_launcher:         ^6.3.1
+
   # ── Secure storage (tokens, session keys) ─────────────────────────────────
   flutter_secure_storage: ^9.2.2
 

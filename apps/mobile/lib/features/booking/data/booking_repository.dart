@@ -55,6 +55,16 @@ class BookingRepository {
         .snapshots()
         .map((snap) => snap.docs.map(BookingModel.fromFirestore).toList());
   }
+
+  Stream<List<BookingModel>> watchBookingsForParent(String parentId) {
+    return _firestore
+        .collection('bookings')
+        .where('parentId', isEqualTo: parentId)
+        .orderBy('scheduledAt', descending: true)
+        .limit(20)
+        .snapshots()
+        .map((snap) => snap.docs.map(BookingModel.fromFirestore).toList());
+  }
 }
 
 // ── Providers ──────────────────────────────────────────────────────────────────

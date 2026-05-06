@@ -13,7 +13,7 @@ import { TutorApplication } from '../shared/types';
 //   3. Function creates /tutor_applications/{id} with status 'pending_document_review'.
 //   4. Admin reviews via reviewApplication function.
 // ─────────────────────────────────────────────────────────────────────────────
-export const submitApplication = onCall(async (request) => {
+export const submitApplication = onCall({ cors: true, region: 'europe-west1' }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Authentification requise');
   }

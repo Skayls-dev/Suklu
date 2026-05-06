@@ -133,7 +133,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {/* TODO: forgot password flow */},
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            final email = _emailCtrl.text.trim();
+                            if (email.isEmpty || !email.contains('@')) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Entrez votre e-mail puis réessayez.'),
+                                  backgroundColor: AppColors.warning,
+                                ),
+                              );
+                              return;
+                            }
+                            try {
+                              await ref
+                                  .read(authStateNotifierProvider.notifier)
+                                  .sendPasswordResetEmail(email);
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('E-mail de réinitialisation envoyé à $email'),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Erreur: $e'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          },
                     child: const Text('Mot de passe oublié ?'),
                   ),
                 ),
@@ -147,6 +180,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
                       : const Text('Se connecter'),
+                ),
+                AppSpacing.gapMd,
+
+                // ── Divider ─────────────────────────────────────────────────
+                Row(children: [
+                  const Expanded(child: Divider()),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('ou', style: TextStyle(color: AppColors.grey600)),
+                  ),
+                  const Expanded(child: Divider()),
+                ]),
+                AppSpacing.gapMd,
+
+                // ── Google ──────────────────────────────────────────────────
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.g_mobiledata, size: 24),
+                  label: const Text('Continuer avec Google'),
+                  onPressed: isLoading ? null : () async {
+                    try {
+                      await ref.read(authStateNotifierProvider.notifier).signInWithGoogle();
+                    } catch (e) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Erreur Google: $e'), backgroundColor: AppColors.error),
+                      );
+                    }
+                  },
+                ),
+                AppSpacing.gapSm,
+
+                // ── Phone OTP ───────────────────────────────────────────────
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.phone_outlined),
+                  label: const Text('Continuer avec le téléphone'),
+                  onPressed: isLoading ? null : () => context.push('/phone-login'),
                 ),
                 AppSpacing.gapMd,
 

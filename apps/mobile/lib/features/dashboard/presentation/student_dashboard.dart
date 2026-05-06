@@ -19,7 +19,7 @@ class StudentDashboard extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {/* TODO */},
+            onPressed: () => context.go('/student/booking'),
           ),
         ],
       ),
@@ -61,7 +61,7 @@ class StudentDashboard extends ConsumerWidget {
                   icon: Icons.video_call_outlined,
                   label: 'Mes sessions',
                   color: AppColors.info,
-                  onTap: () {/* TODO: upcoming sessions */},
+                  onTap: () => context.go('/student/booking'),
                 ),
               ],
             ),
@@ -70,24 +70,11 @@ class StudentDashboard extends ConsumerWidget {
             // Upcoming sessions placeholder
             Text('Prochaines sessions', style: Theme.of(context).textTheme.titleLarge),
             AppSpacing.gapMd,
-            const _EmptySessionsCard(),
+            _EmptySessionsCard(onBookNow: () => context.go('/student/booking')),
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Accueil'),
-          NavigationDestination(icon: Icon(Icons.calendar_today_outlined), label: 'Réserver'),
-          NavigationDestination(icon: Icon(Icons.smart_toy_outlined), label: 'IA'),
-          NavigationDestination(icon: Icon(Icons.person_outlined), label: 'Profil'),
-        ],
-        onDestinationSelected: (i) {
-          switch (i) {
-            case 1: context.go('/student/booking'); break;
-            case 2: context.go('/student/ai-tutor'); break;
-          }
-        },
-      ),
+
     );
   }
 }
@@ -128,7 +115,9 @@ class _QuickAction extends StatelessWidget {
 }
 
 class _EmptySessionsCard extends StatelessWidget {
-  const _EmptySessionsCard();
+  const _EmptySessionsCard({required this.onBookNow});
+
+  final VoidCallback onBookNow;
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
@@ -142,7 +131,7 @@ class _EmptySessionsCard extends StatelessWidget {
         const Icon(Icons.event_available_outlined, size: 48, color: AppColors.grey400),
         AppSpacing.gapSm,
         Text('Aucune session à venir', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.grey600)),
-        TextButton(onPressed: () {}, child: const Text('Réserver maintenant')),
+        TextButton(onPressed: onBookNow, child: const Text('Réserver maintenant')),
       ],
     ),
   );

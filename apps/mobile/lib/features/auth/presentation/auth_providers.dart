@@ -57,6 +57,36 @@ class AuthStateNotifier extends AsyncNotifier<AuthUser?>
     state = const AsyncData(null);
     notifyListeners();
   }
+
+  Future<void> sendPasswordResetEmail(String email) {
+    return ref.read(authRepositoryProvider).sendPasswordResetEmail(email);
+  }
+
+  Future<void> signInWithGoogle() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => ref.read(authRepositoryProvider).signInWithGoogle(),
+    );
+    notifyListeners();
+  }
+
+  Future<dynamic> sendPhoneOtp(String phoneNumber) {
+    return ref.read(authRepositoryProvider).sendPhoneOtp(phoneNumber);
+  }
+
+  Future<void> verifyPhoneOtp({
+    required dynamic confirmationResult,
+    required String smsCode,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => ref.read(authRepositoryProvider).verifyPhoneOtp(
+        confirmationResult: confirmationResult,
+        smsCode:            smsCode,
+      ),
+    );
+    notifyListeners();
+  }
 }
 
 // Internal stream provider — converts the Firestore-enriched auth stream

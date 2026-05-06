@@ -12,7 +12,7 @@ import { UserRole } from '../shared/types';
 //   • student.parentIds       += parentId
 // Both updates run in a transaction for consistency.
 // ─────────────────────────────────────────────────────────────────────────────
-export const verifyParentLink = onCall(async (request) => {
+export const verifyParentLink = onCall({ cors: true, region: 'europe-west1' }, async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Authentification requise');
   }

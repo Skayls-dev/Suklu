@@ -1,33 +1,68 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_spacing.dart';
+import '../../../core/providers/firebase_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SessionScreen
+// SessionScreen — Daily.co room loaded in a WebView
 //
-// Live tutoring session view powered by Daily.co WebRTC.
-//
-// Integration steps (not yet wired — requires Daily.co account):
-// 1. Add daily_flutter to pubspec.yaml
-// 2. Create a Daily room via a Cloud Function (never in client)
-// 3. Pass the room URL + participant token to this screen
-// 4. Replace the placeholder with CallWidget from daily_flutter
+// Calls the createDailyRoom Cloud Function to get a room URL, then
+// loads it in a WebView.  The function requires the DAILY_API_KEY secret
+// to be set in Firebase Secret Manager.
 // ─────────────────────────────────────────────────────────────────────────────
-class SessionScreen extends ConsumerWidget {
+
+// Provider that calls createDailyRoom and returns the room URL
+final _dailyRoomProvider = FutureProvider.autoDispose.family<String, String>(
+  (ref, sessionId) async {
+    final fn = ref.read(firebaseFunctionsProvider);
+    final callable = fn.httpsCallable('createDailyRoom');
+    final result = await callable.call({'bookingId': sessionId});
+    final url = result.data['url'] as String?;
+    if (url == null || url.isEmpty) throw Exception('Room URL introuvable');
+    return url;
+  },
+);
+
+class SessionScreen extends ConsumerStatefulWidget {
   const SessionScreen({required this.sessionId, super.key});
 
   final String sessionId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SessionScreen> createState() => _SessionScreenState();
+}
+
+class _SessionScreenState extends ConsumerState<SessionScreen> {
+  WebViewController? _controller;
+
+  void _initWebView(String url) {
+    if (_controller != null) return; // already initialised
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onWebResourceError: (error) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur de connexion: ${error.description}')),
+          );
+        },
+      ))
+      ..loadRequest(Uri.parse(url));
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(_dailyRoomProvider(widget.sessionId));
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text('Session $sessionId'),
+        title: const Text('Session vidéo'),
         actions: [
           IconButton(
             icon: const Icon(Icons.close, color: Colors.white),
@@ -35,98 +70,43 @@ class SessionScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: const Center(
-        child: _SessionPlaceholder(),
+      body: async.when(
+        loading: () => const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: AppColors.primary),
+              SizedBox(height: 16),
+              Text('Création de la salle...', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                Text('$e', style: const TextStyle(color: Colors.white), textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(_dailyRoomProvider(widget.sessionId)),
+                  child: const Text('Réessayer'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        data: (url) {
+          _initWebView(url);
+          if (_controller == null) {
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          }
+          return WebViewWidget(controller: _controller!);
+        },
       ),
-      bottomNavigationBar: const _SessionControls(),
     );
   }
-}
-
-class _SessionPlaceholder extends StatelessWidget {
-  const _SessionPlaceholder();
-  @override
-  Widget build(BuildContext context) => Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      Container(
-        width: 200, height: 200,
-        decoration: BoxDecoration(
-          color: AppColors.grey600,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.video_call_outlined, size: 64, color: Colors.white54),
-            SizedBox(height: 12),
-            Text(
-              'Daily.co WebRTC\nà intégrer',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54),
-            ),
-          ],
-        ),
-      ),
-    ],
-  );
-}
-
-class _SessionControls extends StatefulWidget {
-  const _SessionControls();
-  @override
-  State<_SessionControls> createState() => _SessionControlsState();
-}
-
-class _SessionControlsState extends State<_SessionControls> {
-  bool _micOn    = true;
-  bool _cameraOn = true;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    color: Colors.black,
-    padding: const EdgeInsets.symmetric(vertical: 16),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _ControlButton(
-          icon:    _micOn ? Icons.mic : Icons.mic_off,
-          label:   _micOn ? 'Micro' : 'Muet',
-          active:  _micOn,
-          onTap:   () => setState(() => _micOn = !_micOn),
-        ),
-        _ControlButton(
-          icon:    _cameraOn ? Icons.videocam : Icons.videocam_off,
-          label:   _cameraOn ? 'Caméra' : 'Caméra off',
-          active:  _cameraOn,
-          onTap:   () => setState(() => _cameraOn = !_cameraOn),
-        ),
-        _ControlButton(
-          icon:    Icons.call_end,
-          label:   'Raccrocher',
-          active:  false,
-          color:   AppColors.error,
-          onTap:   () => Navigator.pop(context),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ControlButton extends StatelessWidget {
-  const _ControlButton({required this.icon, required this.label, required this.active, required this.onTap, this.color});
-  final IconData icon; final String label; final bool active; final VoidCallback onTap; final Color? color;
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Column(children: [
-      CircleAvatar(
-        radius: 28,
-        backgroundColor: color ?? (active ? AppColors.grey600 : Colors.grey.shade800),
-        child: Icon(icon, color: Colors.white),
-      ),
-      const SizedBox(height: 4),
-      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-    ]),
-  );
 }
