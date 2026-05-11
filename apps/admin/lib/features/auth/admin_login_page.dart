@@ -25,6 +25,7 @@ class _AdminLoginPageState extends ConsumerState<AdminLoginPage> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!mounted) return;
     setState(() { _loading = true; _error = null; });
     try {
       final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -36,10 +37,10 @@ class _AdminLoginPageState extends ConsumerState<AdminLoginPage> {
       final role  = token.claims?['role'] as String?;
       if (role != 'academic_staff' && role != 'super_admin') {
         await FirebaseAuth.instance.signOut();
-        setState(() => _error = 'Accès refusé: compte non-administrateur');
+        if (mounted) setState(() => _error = 'Accès refusé: compte non-administrateur');
       }
     } on FirebaseAuthException catch (e) {
-      setState(() => _error = e.message ?? 'Erreur de connexion');
+      if (mounted) setState(() => _error = e.message ?? 'Erreur de connexion');
     } finally {
       if (mounted) setState(() => _loading = false);
     }

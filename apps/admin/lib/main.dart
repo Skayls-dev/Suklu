@@ -38,6 +38,15 @@ void main() async {
       measurementId:     'G-RCX1P41D2R',
     ),
   );
+  
+  // Connect to local Firebase emulators for development
+  try {
+    await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
+    await FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
+  } catch (e) {
+    // Emulator already initialized or not running
+  }
+  
   runApp(const ProviderScope(child: SukluAdminApp()));
 }
 
