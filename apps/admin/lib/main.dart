@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -39,16 +38,6 @@ void main() async {
       measurementId:     'G-RCX1P41D2R',
     ),
   );
-  
-  // Connect to local Firebase emulators for development
-  try {
-    await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
-    // useFirestoreEmulator returns void (not a Future), do NOT await it
-    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
-  } catch (e) {
-    // Emulator already initialized or not running
-  }
-  
   runApp(const ProviderScope(child: SukluAdminApp()));
 }
 
