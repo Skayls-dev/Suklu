@@ -235,13 +235,183 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       ),
       error: (error, _) => _scaffold(
         title: 'Session en cours',
-        child: PreSessionWaitingScreen(
-          isTutorSide: _isTutorSide,
-          onBack: () => context.pop(),
-          createRoomState: createdState,
-          onCreateRoom: _isTutorSide ? _createRoom : null,
-          onRefresh: () => ref.invalidate(sessionByBookingIdProvider(widget.bookingId)),
-        ),
+        child: () {
+          final fallbackSessionId = createdData?.sessionId ?? _createdSessionId;
+          if (fallbackSessionId == null) {
+            return PreSessionWaitingScreen(
+              isTutorSide: _isTutorSide,
+              onBack: () => context.pop(),
+              createRoomState: createdState,
+              onCreateRoom: _isTutorSide ? _createRoom : null,
+              onRefresh: () => ref.invalidate(sessionByBookingIdProvider(widget.bookingId)),
+            );
+          }
+
+          final sessionAsync = ref.watch(sessionStreamProvider(fallbackSessionId));
+          return sessionAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, __) {
+              final createdRoomUrl = createdData?.roomUrl;
+              if ((createdRoomUrl ?? '').isNotEmpty) {
+                if (kIsWeb) {
+                  final roomUrl = createdRoomUrl!;
+                  unawaited(_openRoomOnWeb(roomUrl));
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          const Text('Ouverture de la salle vidéo...', textAlign: TextAlign.center),
+                          const SizedBox(height: 12),
+                          OutlinedButton(
+                            onPressed: () => _openRoomOnWeb(roomUrl),
+                            child: const Text('Ouvrir manuellement'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                unawaited(_initWebView(createdRoomUrl!));
+                if (_controller != null) {
+                  return Stack(
+                    children: [
+                      WebViewWidget(controller: _controller!),
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: () => setState(() => _overlayVisible = !_overlayVisible),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return PreSessionWaitingScreen(
+                isTutorSide: _isTutorSide,
+                onBack: () => context.pop(),
+                createRoomState: createdState,
+                onCreateRoom: _isTutorSide ? _createRoom : null,
+                onRefresh: () => ref.invalidate(sessionByBookingIdProvider(widget.bookingId)),
+              );
+            },
+            data: (session) {
+              if (session == null) {
+                final createdRoomUrl = createdData?.roomUrl;
+                if ((createdRoomUrl ?? '').isNotEmpty) {
+                  if (kIsWeb) {
+                    final roomUrl = createdRoomUrl!;
+                    unawaited(_openRoomOnWeb(roomUrl));
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 16),
+                            const Text('Ouverture de la salle vidéo...', textAlign: TextAlign.center),
+                            const SizedBox(height: 12),
+                            OutlinedButton(
+                              onPressed: () => _openRoomOnWeb(roomUrl),
+                              child: const Text('Ouvrir manuellement'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  unawaited(_initWebView(createdRoomUrl!));
+                  if (_controller != null) {
+                    return Stack(
+                      children: [
+                        WebViewWidget(controller: _controller!),
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onTap: () => setState(() => _overlayVisible = !_overlayVisible),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                return PreSessionWaitingScreen(
+                  isTutorSide: _isTutorSide,
+                  onBack: () => context.pop(),
+                  createRoomState: createdState,
+                  onCreateRoom: _isTutorSide ? _createRoom : null,
+                  onRefresh: () => ref.invalidate(sessionByBookingIdProvider(widget.bookingId)),
+                );
+              }
+
+              final effectiveRoomUrl = createdData?.roomUrl ?? session.roomUrl;
+              if ((effectiveRoomUrl ?? '').isEmpty) {
+                return PreSessionWaitingScreen(
+                  isTutorSide: _isTutorSide,
+                  session: session,
+                  onBack: () => context.pop(),
+                  createRoomState: createdState,
+                  onCreateRoom: _isTutorSide ? _createRoom : null,
+                  onRefresh: () => ref.invalidate(sessionStreamProvider(fallbackSessionId)),
+                );
+              }
+
+              if (kIsWeb) {
+                final roomUrl = effectiveRoomUrl!;
+                unawaited(_openRoomOnWeb(roomUrl));
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 16),
+                        const Text('Ouverture de la salle vidéo...', textAlign: TextAlign.center),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () => _openRoomOnWeb(roomUrl),
+                          child: const Text('Ouvrir manuellement'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              unawaited(_initWebView(effectiveRoomUrl!));
+              if (_controller == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              return Stack(
+                children: [
+                  WebViewWidget(controller: _controller!),
+                  Positioned.fill(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () => setState(() => _overlayVisible = !_overlayVisible),
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        }(),
       ),
       data: (sessionByBooking) {
         final activeSessionId = sessionByBooking?.id ?? createdData?.sessionId ?? _createdSessionId;
