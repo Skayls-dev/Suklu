@@ -53,6 +53,7 @@ export interface BookingDocument {
   parentId?:       string;
   status:          BookingStatus;
   sessionId?:      string;
+  reminderSent?:   boolean;
   totalAmount:     number;
   currency:        Currency;
   createdAt:       admin.firestore.Timestamp | admin.firestore.FieldValue;

@@ -17,3 +17,5 @@ export { reviewApplication }  from './tutor/reviewApplication';
 export { requestParentLink }  from './linking/requestParentLink';
 export { verifyParentLink }   from './linking/verifyParentLink';
 export { createDailyRoom }    from './sessions/createDailyRoom';
+export { sessionReminders }   from './sessions/sessionReminders';
+export { onTutorMessage }     from './sessions/onTutorMessage';

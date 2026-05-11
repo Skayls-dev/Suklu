@@ -107,6 +107,7 @@ export const createBooking = onCall(
       sessionType:     data.sessionType,
       parentId:        callerRole === 'parent' ? callerId : undefined,
       status:          'pending',
+      reminderSent:    false,
       totalAmount,
       currency,
       createdAt:       serverTs(),
