@@ -21,7 +21,7 @@ echo       - API  : http://localhost:8000
 echo       - Docs : http://localhost:8000/docs
 echo.
 echo   [3] Panel Admin (Flutter Web)
-echo       - URL  : http://localhost:8080
+       - URL  : http://localhost:8081
 echo.
 echo  L'app mobile se lance separement via start-mobile.bat
 echo  ======================================================
@@ -59,7 +59,7 @@ start "Suklu - AI Gateway" cmd /k "cd /d %ROOT%\backend\ai-gateway && call .venv
 
 :: Fenetre 3 : Panel Admin
 echo [3/3] Demarrage du panel admin...
-start "Suklu - Admin Panel" cmd /k "cd /d %ROOT%\apps\admin && flutter run -d chrome --web-port 8080"
+start "Suklu - Admin Panel" cmd /k "cd /d %ROOT%\apps\admin && flutter run -d chrome --web-port 8081"
 
 echo.
 echo  ======================================================
