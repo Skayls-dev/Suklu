@@ -210,6 +210,17 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── /subjects ─────────────────────────────────────────────────────────────
+    // Subject catalogue — all authenticated users can browse for booking/profile.
+    // Only staff may write (via admin panel). Read by students/tutors when
+    // creating bookings, searching, or completing profiles.
+    match /subjects/{subjectId} {
+      allow read:   if isAuthed();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
     // ── /tutor_applications ───────────────────────────────────────────────────
     match /tutor_applications/{appId} {
       // Applicant sees own application; staff sees all.
