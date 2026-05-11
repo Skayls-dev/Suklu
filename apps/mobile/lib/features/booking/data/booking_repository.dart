@@ -37,33 +37,53 @@ class BookingRepository {
 
   // ── Streams ────────────────────────────────────────────────────────────────
   Stream<List<BookingModel>> watchBookingsForStudent(String studentId) {
-    return _firestore
-        .collection('bookings')
-        .where('studentId', isEqualTo: studentId)
-        .orderBy('scheduledAt', descending: true)
-        .limit(20)
-        .snapshots()
-        .map((snap) => snap.docs.map(BookingModel.fromFirestore).toList());
+    return getMyBookings(studentId, 'student');
   }
 
   Stream<List<BookingModel>> watchBookingsForTutor(String tutorId) {
-    return _firestore
-        .collection('bookings')
-        .where('tutorId', isEqualTo: tutorId)
-        .orderBy('scheduledAt', descending: true)
-        .limit(20)
-        .snapshots()
-        .map((snap) => snap.docs.map(BookingModel.fromFirestore).toList());
+    return getMyBookings(tutorId, 'tutor');
   }
 
   Stream<List<BookingModel>> watchBookingsForParent(String parentId) {
-    return _firestore
-        .collection('bookings')
-        .where('parentId', isEqualTo: parentId)
-        .orderBy('scheduledAt', descending: true)
-        .limit(20)
-        .snapshots()
-        .map((snap) => snap.docs.map(BookingModel.fromFirestore).toList());
+    return getMyBookings(parentId, 'parent');
+  }
+
+  Stream<List<BookingModel>> getMyBookings(String uid, String role) async* {
+    Query<Map<String, dynamic>> query = _firestore.collection('bookings');
+
+    if (role == 'student') {
+      query = query.where('studentId', isEqualTo: uid);
+    } else if (role == 'tutor') {
+      query = query.where('tutorId', isEqualTo: uid);
+    } else if (role == 'parent') {
+      query = query.where('parentId', isEqualTo: uid);
+    } else {
+      yield const <BookingModel>[];
+      return;
+    }
+
+    query = query.orderBy('scheduledAt', descending: false).limit(50);
+
+    try {
+      await for (final snapshot in query.snapshots(includeMetadataChanges: true)) {
+        final mapped = snapshot.docs
+            .map((doc) => BookingModel.fromFirestore(
+                  doc,
+                  isFromCache: snapshot.metadata.isFromCache,
+                ))
+            .toList();
+        yield mapped;
+      }
+    } on FirebaseException catch (e) {
+      if (e.code != 'unavailable') {
+        rethrow;
+      }
+
+      final cached = await query.get(const GetOptions(source: Source.cache));
+      yield cached.docs
+          .map((doc) => BookingModel.fromFirestore(doc, isFromCache: true))
+          .toList();
+    }
   }
 }
 

@@ -3,82 +3,41 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
-import '../../../core/providers/firebase_providers.dart';
 import '../../auth/presentation/auth_providers.dart';
-
-// ── Progress data model ───────────────────────────────────────────────────────
-class _ProgressData {
-  const _ProgressData({
-    required this.sessions,
-    required this.hours,
-    required this.quizzes,
-    required this.subjectProgress,
-  });
-  final int sessions;
-  final double hours;
-  final int quizzes;
-  final Map<String, double> subjectProgress; // subject → 0.0-1.0
-}
-
-// ── Provider ──────────────────────────────────────────────────────────────────
-final _progressProvider = FutureProvider.autoDispose<_ProgressData>((ref) async {
-  final uid  = ref.watch(authStateNotifierProvider).value?.uid;
-  if (uid == null) return const _ProgressData(sessions: 0, hours: 0, quizzes: 0, subjectProgress: {});
-
-  final fs = ref.read(firestoreProvider);
-
-  // Completed bookings for this student
-  final bookingsSnap = await fs
-      .collection('bookings')
-      .where('studentId', isEqualTo: uid)
-      .where('status', isEqualTo: 'completed')
-      .get();
-
-  final bookings = bookingsSnap.docs.map((d) => d.data()).toList();
-  final sessions = bookings.length;
-  final totalMinutes = bookings.fold<int>(0, (sum, b) => sum + ((b['durationMinutes'] as num?)?.toInt() ?? 0));
-  final hours = totalMinutes / 60.0;
-
-  // Count sessions per subject
-  final subjectCounts = <String, int>{};
-  for (final b in bookings) {
-    final s = b['subjectId'] as String? ?? 'Autre';
-    subjectCounts[s] = (subjectCounts[s] ?? 0) + 1;
-  }
-  final maxCount = subjectCounts.values.fold(0, (m, v) => v > m ? v : m);
-  final subjectProgress = subjectCounts.map((k, v) =>
-      MapEntry(k, maxCount > 0 ? v / maxCount : 0.0));
-
-  // Successful quizzes in ai_logs
-  final quizSnap = await fs
-      .collection('ai_logs')
-      .where('userId', isEqualTo: uid)
-      .where('type', isEqualTo: 'quiz')
-      .where('success', isEqualTo: true)
-      .get();
-  final quizzes = quizSnap.docs.length;
-
-  return _ProgressData(
-    sessions: sessions,
-    hours: hours,
-    quizzes: quizzes,
-    subjectProgress: subjectProgress,
-  );
-});
+import '../data/progress_repository.dart';
 
 class ProgressScreen extends ConsumerWidget {
   const ProgressScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(_progressProvider);
+    final uid = ref.watch(authStateNotifierProvider).value?.uid;
+    if (uid == null) {
+      return const Scaffold(body: Center(child: Text('Utilisateur non connecté')));
+    }
+    final async = ref.watch(studentProgressProvider(uid));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mes progrès')),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error:   (e, _) => Center(child: Text('Erreur: $e')),
-        data: (data) => SingleChildScrollView(
+        data: (records) {
+          final sessions = records.fold<int>(0, (sum, item) => sum + item.sessionCount);
+          final totalMinutes = records.fold<int>(0, (sum, item) => sum + item.totalMinutes);
+          final hours = totalMinutes / 60.0;
+          final ratings = records
+              .where((record) => record.averageRating > 0)
+              .map((record) => record.averageRating)
+              .toList();
+          final avgRating =
+              ratings.isEmpty ? 0.0 : ratings.reduce((a, b) => a + b) / ratings.length;
+          final subjectProgress = <String, double>{
+            for (final record in records)
+              record.subjectId: (record.sessionCount / 10).clamp(0.0, 1.0),
+          };
+
+          return SingleChildScrollView(
           padding: AppSpacing.pagePadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,22 +46,22 @@ class ProgressScreen extends ConsumerWidget {
               Row(children: [
                 Expanded(child: _StatCard(
                   label: 'Sessions',
-                  value: '${data.sessions}',
+                  value: '$sessions',
                   icon: Icons.video_call_outlined,
                   color: AppColors.info,
                 )),
                 AppSpacing.gapMd,
                 Expanded(child: _StatCard(
                   label: 'Heures',
-                  value: data.hours.toStringAsFixed(1),
+                  value: hours.toStringAsFixed(1),
                   icon: Icons.schedule_outlined,
                   color: AppColors.primary,
                 )),
                 AppSpacing.gapMd,
                 Expanded(child: _StatCard(
-                  label: 'Quiz réussis',
-                  value: '${data.quizzes}',
-                  icon: Icons.check_circle_outlined,
+                  label: 'Note moyenne',
+                  value: avgRating.toStringAsFixed(1),
+                  icon: Icons.star_outline,
                   color: AppColors.success,
                 )),
               ]),
@@ -111,7 +70,7 @@ class ProgressScreen extends ConsumerWidget {
               Text('Matières', style: Theme.of(context).textTheme.titleLarge),
               AppSpacing.gapMd,
 
-              if (data.subjectProgress.isEmpty)
+              if (subjectProgress.isEmpty)
                 Center(
                   child: Text(
                     'Les données de progression s\'affichent ici\naprès votre première session.',
@@ -120,11 +79,12 @@ class ProgressScreen extends ConsumerWidget {
                   ),
                 )
               else
-                ...data.subjectProgress.entries.map((e) =>
+                ...subjectProgress.entries.map((e) =>
                   _SubjectProgressCard(subject: e.key, progress: e.value)),
             ],
           ),
-        ),
+        );
+        },
       ),
     );
   }

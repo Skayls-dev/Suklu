@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/fcm_token_service.dart';
 import '../data/auth_repository.dart';
 import '../domain/auth_user.dart';
 
@@ -39,6 +42,7 @@ class AuthStateNotifier extends AsyncNotifier<AuthUser?>
         email: email, password: password,
       ),
     );
+    _saveFcmTokenIfAuthenticated();
     notifyListeners();
   }
 
@@ -49,6 +53,7 @@ class AuthStateNotifier extends AsyncNotifier<AuthUser?>
         email: email, password: password, displayName: displayName,
       ),
     );
+    _saveFcmTokenIfAuthenticated();
     notifyListeners();
   }
 
@@ -67,6 +72,7 @@ class AuthStateNotifier extends AsyncNotifier<AuthUser?>
     state = await AsyncValue.guard(
       () => ref.read(authRepositoryProvider).signInWithGoogle(),
     );
+    _saveFcmTokenIfAuthenticated();
     notifyListeners();
   }
 
@@ -85,7 +91,21 @@ class AuthStateNotifier extends AsyncNotifier<AuthUser?>
         smsCode:            smsCode,
       ),
     );
+    _saveFcmTokenIfAuthenticated();
     notifyListeners();
+  }
+
+  void _saveFcmTokenIfAuthenticated() {
+    final uid = state.value?.uid;
+    if (uid == null || uid.isEmpty) {
+      return;
+    }
+
+    unawaited(
+      ref.read(fcmTokenServiceProvider).initAndSave(uid).catchError((Object error) {
+        debugPrint('FCM token init failed after auth: $error');
+      }),
+    );
   }
 }
 

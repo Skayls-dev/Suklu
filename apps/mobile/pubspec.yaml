@@ -17,6 +17,7 @@ dependencies:
   cloud_firestore:      ^5.4.4
   firebase_storage:     ^12.3.2
   cloud_functions:      ^5.1.3
+  firebase_messaging:   ^15.1.6
 
   # ── State management ──────────────────────────────────────────────────────
   flutter_riverpod:     ^2.5.1
@@ -43,6 +44,7 @@ dependencies:
 
   # ── Secure storage (tokens, session keys) ─────────────────────────────────
   flutter_secure_storage: ^9.2.2
+  connectivity_plus:    ^6.1.0
 
   # ── UI ────────────────────────────────────────────────────────────────────
   google_fonts:         ^6.2.1
@@ -67,6 +69,7 @@ dev_dependencies:
   json_serializable:      ^6.8.0
   custom_lint:            ^0.6.7
   riverpod_lint:          ^2.3.13
+  fake_cloud_firestore:   ^3.0.3
 
 flutter:
   uses-material-design: true

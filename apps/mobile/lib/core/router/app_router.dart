@@ -24,6 +24,7 @@ import '../../features/parent_linking/presentation/link_request_screen.dart';
 import '../../features/payments/presentation/payment_screen.dart';
 import '../../features/progress/presentation/progress_screen.dart';
 import '../../features/sessions/presentation/session_screen.dart';
+import '../widgets/offline_banner.dart';
 import 'route_guards.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,7 +174,12 @@ class _StudentShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final idx = _selectedIndex(context);
     return Scaffold(
-      body: child,
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: idx,
         onDestinationSelected: (i) {
@@ -220,7 +226,12 @@ class _TutorShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final idx = _selectedIndex(context);
     return Scaffold(
-      body: child,
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         backgroundColor: AppColors.tutorAccent.withValues(alpha: 0.08),
         selectedIndex: idx,
@@ -264,7 +275,12 @@ class _ParentShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final idx = _selectedIndex(context);
     return Scaffold(
-      body: child,
+      body: Column(
+        children: [
+          const OfflineBanner(),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: idx,
         onDestinationSelected: (i) {

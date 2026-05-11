@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/mixins/offline_guard_mixin.dart';
+import '../../../core/providers/connectivity_provider.dart';
 import '../../../core/providers/firebase_providers.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../domain/booking_model.dart';
@@ -37,6 +39,7 @@ class BookingScreen extends ConsumerWidget {
     final bookingsAsync = ref.watch(userBookingsProvider);
     final role = ref.watch(authStateNotifierProvider).value?.role.toFirestoreString();
     final canCreateBooking = role == 'student';
+    final isOnline = ref.watch(isOnlineProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Mes réservations')),
@@ -50,13 +53,50 @@ class BookingScreen extends ConsumerWidget {
       body: bookingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error:   (e, _) => Center(child: Text('Erreur: $e')),
-        data:    (bookings) => bookings.isEmpty
-            ? const _EmptyState()
-            : ListView.builder(
-                padding: AppSpacing.pagePadding,
-                itemCount: bookings.length,
-                itemBuilder: (context, i) => _BookingCard(booking: bookings[i]),
+        data:    (bookings) {
+          final isFromCache = bookings.isNotEmpty && bookings.first.isFromCache;
+          if (bookings.isEmpty) {
+            return const _EmptyState();
+          }
+
+          return Column(
+            children: [
+              if (!isOnline)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.history, size: 14, color: Colors.grey.shade600),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Affichage du cache local',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              if (isOnline && isFromCache)
+                const SizedBox(
+                  width: double.infinity,
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+              Expanded(
+                child: ListView.builder(
+                  padding: AppSpacing.pagePadding,
+                  itemCount: bookings.length,
+                  itemBuilder: (context, i) => _BookingCard(booking: bookings[i]),
+                ),
               ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -130,7 +170,8 @@ class _NewBookingForm extends ConsumerStatefulWidget {
   ConsumerState<_NewBookingForm> createState() => _NewBookingFormState();
 }
 
-class _NewBookingFormState extends ConsumerState<_NewBookingForm> {
+class _NewBookingFormState extends ConsumerState<_NewBookingForm>
+  with OfflineGuardMixin<_NewBookingForm> {
   String?  _selectedSubjectId;
   String?  _selectedTutorId;
     @override
@@ -171,26 +212,28 @@ class _NewBookingFormState extends ConsumerState<_NewBookingForm> {
       return;
     }
 
-    try {
-      await ref.read(bookingCreationProvider.notifier).createBooking(
-        tutorId:         _selectedTutorId!,
-        subjectId:       _selectedSubjectId!,
-        scheduledAt:     _scheduledAt,
-        durationMinutes: _durationMinutes,
-      );
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Réservation créée avec succès!')),
+    guardOnline(context, () async {
+      try {
+        await ref.read(bookingCreationProvider.notifier).createBooking(
+          tutorId:         _selectedTutorId!,
+          subjectId:       _selectedSubjectId!,
+          scheduledAt:     _scheduledAt,
+          durationMinutes: _durationMinutes,
         );
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Réservation créée avec succès!')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: $e')),
+          );
+        }
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
-      }
-    }
+    });
   }
 
   @override

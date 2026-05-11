@@ -17,6 +17,7 @@ class BookingModel {
     required this.currency,
     this.parentId,
     this.sessionId,
+    this.isFromCache = false,
   });
 
   final String       id;
@@ -31,8 +32,12 @@ class BookingModel {
   final String       currency;
   final String?      parentId;
   final String?      sessionId;
+  final bool         isFromCache;
 
-  factory BookingModel.fromFirestore(DocumentSnapshot doc) {
+  factory BookingModel.fromFirestore(
+    DocumentSnapshot doc, {
+    bool isFromCache = false,
+  }) {
     final data = doc.data() as Map<String, dynamic>;
     return BookingModel(
       id:              doc.id,
@@ -49,6 +54,7 @@ class BookingModel {
       currency:        data['currency']        as String,
       parentId:        data['parentId']        as String?,
       sessionId:       data['sessionId']       as String?,
+      isFromCache:     isFromCache,
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../auth/presentation/auth_providers.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/mixins/offline_guard_mixin.dart';
 import '../../../core/providers/firebase_providers.dart';
 import '../domain/booking_model.dart';
 
@@ -85,7 +86,8 @@ class _DetailView extends ConsumerStatefulWidget {
   ConsumerState<_DetailView> createState() => _DetailViewState();
 }
 
-class _DetailViewState extends ConsumerState<_DetailView> {
+class _DetailViewState extends ConsumerState<_DetailView>
+  with OfflineGuardMixin<_DetailView> {
   BookingModel get booking => widget.booking;
 
   Color _statusColor() => switch (booking.status) {
@@ -234,29 +236,31 @@ class _DetailViewState extends ConsumerState<_DetailView> {
   }
 
   void _confirmCancel(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Annuler la réservation ?'),
-        content: const Text('Cette action est irréversible.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Retour'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Annulation — disponible prochainement')),
-              );
-            },
-            child: const Text('Confirmer'),
-          ),
-        ],
-      ),
-    );
+    guardOnline(context, () async {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Annuler la réservation ?'),
+          content: const Text('Cette action est irréversible.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Retour'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Annulation — disponible prochainement')),
+                );
+              },
+              child: const Text('Confirmer'),
+            ),
+          ],
+        ),
+      );
+    });
   }
 }
 

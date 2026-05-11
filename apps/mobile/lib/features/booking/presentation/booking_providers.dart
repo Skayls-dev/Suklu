@@ -9,12 +9,11 @@ final userBookingsProvider = StreamProvider.autoDispose<List<BookingModel>>((ref
   if (user == null) return const Stream.empty();
 
   final repo = ref.watch(bookingRepositoryProvider);
-  return switch (user.role.toFirestoreString()) {
-    'student' => repo.watchBookingsForStudent(user.uid),
-    'tutor' => repo.watchBookingsForTutor(user.uid),
-    'parent' => repo.watchBookingsForParent(user.uid),
-    _ => const Stream.empty(),
-  };
+  final role = user.role.toFirestoreString();
+  if (role != 'student' && role != 'tutor' && role != 'parent') {
+    return const Stream.empty();
+  }
+  return repo.getMyBookings(user.uid, role);
 });
 
 // Booking creation state
