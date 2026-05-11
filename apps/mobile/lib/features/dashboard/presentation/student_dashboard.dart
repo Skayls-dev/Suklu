@@ -28,6 +28,8 @@ class StudentDashboard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _DiagnosticEntryCard(onStart: () => context.go('/diagnostic')),
+            AppSpacing.gapLg,
             // Quick actions grid
             Text('Accès rapide', style: Theme.of(context).textTheme.titleLarge),
             AppSpacing.gapMd,
@@ -58,6 +60,12 @@ class StudentDashboard extends ConsumerWidget {
                   onTap: () => context.push('/student/progress'),
                 ),
                 _QuickAction(
+                  icon: Icons.quiz_outlined,
+                  label: 'Diagnostic',
+                  color: AppColors.secondaryDark,
+                  onTap: () => context.go('/diagnostic'),
+                ),
+                _QuickAction(
                   icon: Icons.video_call_outlined,
                   label: 'Mes sessions',
                   color: AppColors.info,
@@ -75,6 +83,78 @@ class StudentDashboard extends ConsumerWidget {
         ),
       ),
 
+    );
+  }
+}
+
+class _DiagnosticEntryCard extends StatelessWidget {
+  const _DiagnosticEntryCard({required this.onStart});
+
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: AppSpacing.cardPadding,
+      decoration: BoxDecoration(
+        color: AppColors.grey50,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withAlpha(32),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                child: const Icon(
+                  Icons.quiz_outlined,
+                  color: AppColors.secondaryDark,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Évaluation diagnostique',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    AppSpacing.gapXs,
+                    Text(
+                      'Lancez votre diagnostic pour personnaliser votre parcours d’apprentissage.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.grey600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          AppSpacing.gapMd,
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onStart,
+              icon: const Icon(Icons.play_arrow_rounded, color: Colors.white),
+              label: const Text(
+                'Lancer le diagnostic',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -99,7 +179,7 @@ class _QuickAction extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withAlpha(20),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: color.withAlpha(60)),
+        border: Border.all(color: color.withAlpha(60), width: 0.5),
       ),
       padding: AppSpacing.cardPadding,
       child: Column(

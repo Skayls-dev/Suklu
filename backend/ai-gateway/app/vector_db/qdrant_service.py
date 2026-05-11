@@ -38,6 +38,12 @@ class QdrantService:
             kwargs["api_key"] = settings.qdrant_api_key
         self._client = AsyncQdrantClient(**kwargs)
 
+    @staticmethod
+    def _infer_vector_size(query_vector: list[float] | None = None) -> int:
+        if query_vector:
+            return len(query_vector)
+        return _VECTOR_SIZE_MAP.get(settings.openai_embedding_model, 1536)
+
     async def ensure_collection(self, vector_size: int = 1536) -> None:
         """Create the collection if it doesn't exist yet."""
         collections = await self._client.get_collections()
@@ -70,6 +76,8 @@ class QdrantService:
         filter_payload: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         from qdrant_client.models import Filter, FieldCondition, MatchValue
+
+        await self.ensure_collection(vector_size=self._infer_vector_size(query_vector))
 
         qdrant_filter = None
         if filter_payload:

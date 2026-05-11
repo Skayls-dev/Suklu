@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -91,11 +92,86 @@ class AiTutorRepository {
     }
   }
 
+  Stream<String> streamChat({
+    required String message,
+    required String subject,
+    required String gradeLevel,
+    required String sessionId,
+    required List<Map<String, String>> history,
+    String country = 'Sénégal',
+  }) async* {
+    final token = await _auth.currentUser!.getIdToken();
+
+    final response = await _dio.post<ResponseBody>(
+      '/chat/stream',
+      data: {
+        'message': message,
+        'subject': subject,
+        'grade_level': gradeLevel,
+        'country': country,
+        'conversation_history': history,
+        'session_id': sessionId,
+      },
+      options: Options(
+        headers: {'Authorization': 'Bearer $token'},
+        responseType: ResponseType.stream,
+        sendTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(minutes: 2),
+      ),
+    );
+
+    final body = response.data;
+    if (body == null) {
+      throw Exception('Réponse streaming vide');
+    }
+
+    var buffer = '';
+    final textStream = utf8.decoder.bind(body.stream.cast<List<int>>());
+
+    await for (final chunk in textStream) {
+      buffer += chunk;
+
+      while (true) {
+        final boundary = buffer.indexOf('\n\n');
+        if (boundary == -1) break;
+
+        final rawEvent = buffer.substring(0, boundary).trim();
+        buffer = buffer.substring(boundary + 2);
+        if (rawEvent.isEmpty) continue;
+
+        String? event;
+        String? data;
+        for (final line in rawEvent.split('\n')) {
+          if (line.startsWith('event:')) {
+            event = line.substring(6).trim();
+          } else if (line.startsWith('data:')) {
+            data = line.substring(5).trim();
+          }
+        }
+
+        if (data == null || data.isEmpty) continue;
+        final payload = jsonDecode(data) as Map<String, dynamic>;
+
+        if (event == 'delta') {
+          final text = payload['text'] as String?;
+          if (text != null && text.isNotEmpty) {
+            yield text;
+          }
+        } else if (event == 'error') {
+          throw Exception(payload['message'] ?? 'Erreur du service IA');
+        } else if (event == 'done') {
+          return;
+        }
+      }
+    }
+  }
+
   Future<Map<String, dynamic>> startDiagnostic({
     required String subject,
     required String gradeLevel,
     required String sessionId,
     List<Map<String, String>> history = const [],
+    int maxQuestions = 10,
   }) async {
     final token    = await _auth.currentUser!.getIdToken();
     try {
@@ -106,21 +182,16 @@ class AiTutorRepository {
           'grade_level':          gradeLevel,
           'session_id':           sessionId,
           'conversation_history': history,
+          'max_questions':        maxQuestions,
         },
         options: Options(
           headers: {'Authorization': 'Bearer $token'},
-          sendTimeout:    const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 30),
+          sendTimeout:    const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 60),
         ),
       );
       return response.data!;
-    } on DioException catch (e) {
-      if (e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.connectionTimeout) {
-        return {
-          'reply': '🚧 [Mode démo] Service IA non disponible. Lancez le gateway localement pour activer le diagnostic.',
-        };
-      }
+    } on DioException {
       rethrow;
     }
   }

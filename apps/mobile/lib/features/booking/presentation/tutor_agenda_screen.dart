@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/providers/firebase_providers.dart';
-import '../../auth/presentation/auth_providers.dart';
 import '../domain/booking_model.dart';
 import 'booking_providers.dart';
 
@@ -312,7 +311,7 @@ class _ConfirmedCard extends StatelessWidget {
               label: const Text('Démarrer la session'),
               style: FilledButton.styleFrom(
                   backgroundColor: AppColors.tutorAccent),
-              onPressed: () => context.push('/tutor/booking/${booking.id}', extra: booking),
+              onPressed: () => context.push('/tutor/session/${booking.id}'),
             ),
           ),
         ]),

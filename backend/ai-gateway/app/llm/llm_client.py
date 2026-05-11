@@ -16,7 +16,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any
+from typing import Any, AsyncIterator
 
 import structlog
 
@@ -39,11 +39,22 @@ class BaseLLMClient(ABC):
         system_prompt: str = "",
         temperature: float = 0.3,
         max_tokens: int = 2048,
+        response_format: str | None = None,
     ) -> tuple[str, LLMUsage]:
         ...
 
     @abstractmethod
     async def embed(self, text: str) -> list[float]:
+        ...
+
+    @abstractmethod
+    async def chat_stream(
+        self,
+        messages: list[dict[str, str]],
+        system_prompt: str = "",
+        temperature: float = 0.3,
+        max_tokens: int = 2048,
+    ) -> AsyncIterator[str]:
         ...
 
 
@@ -60,18 +71,24 @@ class OpenAIClient(BaseLLMClient):
         system_prompt: str = "",
         temperature: float = 0.3,
         max_tokens: int = 2048,
+        response_format: str | None = None,
     ) -> tuple[str, LLMUsage]:
         all_messages: list[dict[str, str]] = []
         if system_prompt:
             all_messages.append({"role": "system", "content": system_prompt})
         all_messages.extend(messages)
 
-        response = await self._client.chat.completions.create(
-            model=settings.openai_model,
-            messages=all_messages,  # type: ignore[arg-type]
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+        kwargs: dict[str, Any] = {
+            "model": settings.openai_model,
+            "messages": all_messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
+        if response_format == "json_object":
+            kwargs["response_format"] = {"type": "json_object"}
+
+        response = await self._client.chat.completions.create(**kwargs)  # type: ignore[arg-type]
         content = response.choices[0].message.content or ""
         usage   = LLMUsage(
             prompt_tokens=response.usage.prompt_tokens if response.usage else 0,
@@ -85,6 +102,33 @@ class OpenAIClient(BaseLLMClient):
             input=text,
         )
         return response.data[0].embedding
+
+    async def chat_stream(
+        self,
+        messages: list[dict[str, str]],
+        system_prompt: str = "",
+        temperature: float = 0.3,
+        max_tokens: int = 2048,
+    ) -> AsyncIterator[str]:
+        all_messages: list[dict[str, str]] = []
+        if system_prompt:
+            all_messages.append({"role": "system", "content": system_prompt})
+        all_messages.extend(messages)
+
+        stream = await self._client.chat.completions.create(
+            model=settings.openai_model,
+            messages=all_messages,  # type: ignore[arg-type]
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=True,
+        )
+
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
 
 
 # ── Google Gemini implementation ──────────────────────────────────────────────
@@ -102,7 +146,9 @@ class GeminiClient(BaseLLMClient):
         system_prompt: str = "",
         temperature: float = 0.3,
         max_tokens: int = 2048,
+        response_format: str | None = None,
     ) -> tuple[str, LLMUsage]:
+        _ = response_format
         # Gemini uses a single string prompt or structured history
         full_prompt = ""
         if system_prompt:
@@ -129,6 +175,22 @@ class GeminiClient(BaseLLMClient):
             content=text,
         )
         return result["embedding"]
+
+    async def chat_stream(
+        self,
+        messages: list[dict[str, str]],
+        system_prompt: str = "",
+        temperature: float = 0.3,
+        max_tokens: int = 2048,
+    ) -> AsyncIterator[str]:
+        text, _ = await self.chat(
+            messages=messages,
+            system_prompt=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        if text:
+            yield text
 
 
 # ── Factory ───────────────────────────────────────────────────────────────────

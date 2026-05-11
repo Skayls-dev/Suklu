@@ -61,6 +61,55 @@
       ]
     },
     {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "role",         "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "scheduledAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "provider",     "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "provider",     "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "assessments",
       "queryScope": "COLLECTION",
       "fields": [
@@ -93,6 +142,14 @@
       ]
     },
     {
+      "collectionGroup": "tutor_applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "link_requests",
       "queryScope": "COLLECTION",
       "fields": [
@@ -110,11 +167,109 @@
       ]
     },
     {
+      "collectionGroup": "link_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "flagged_content",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status",       "order": "ASCENDING" },
         { "fieldPath": "createdAt",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "flagged_content",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tutor_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",     "order": "ASCENDING" },
+        { "fieldPath": "subjects",     "arrayConfig": "CONTAINS" },
+        { "fieldPath": "rating",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tutor_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",     "order": "ASCENDING" },
+        { "fieldPath": "gradeLevels",  "arrayConfig": "CONTAINS" },
+        { "fieldPath": "rating",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tutor_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",     "order": "ASCENDING" },
+        { "fieldPath": "isVerified",   "order": "ASCENDING" },
+        { "fieldPath": "rating",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tutor_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",     "order": "ASCENDING" },
+        { "fieldPath": "hourlyRate",   "order": "ASCENDING" },
+        { "fieldPath": "rating",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tutor_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",     "order": "ASCENDING" },
+        { "fieldPath": "isVerified",   "order": "ASCENDING" },
+        { "fieldPath": "country",      "order": "ASCENDING" },
+        { "fieldPath": "subjects",     "arrayConfig": "CONTAINS" },
+        { "fieldPath": "rating",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tutor_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",     "order": "ASCENDING" },
+        { "fieldPath": "isVerified",   "order": "ASCENDING" },
+        { "fieldPath": "country",      "order": "ASCENDING" },
+        { "fieldPath": "gradeLevels",  "arrayConfig": "CONTAINS" },
+        { "fieldPath": "rating",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tutor_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",     "order": "ASCENDING" },
+        { "fieldPath": "isVerified",   "order": "ASCENDING" },
+        { "fieldPath": "country",      "order": "ASCENDING" },
+        { "fieldPath": "subjects",     "arrayConfig": "CONTAINS" },
+        { "fieldPath": "hourlyRate",   "order": "ASCENDING" },
+        { "fieldPath": "rating",       "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tutor_profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive",     "order": "ASCENDING" },
+        { "fieldPath": "isVerified",   "order": "ASCENDING" },
+        { "fieldPath": "country",      "order": "ASCENDING" },
+        { "fieldPath": "gradeLevels",  "arrayConfig": "CONTAINS" },
+        { "fieldPath": "hourlyRate",   "order": "ASCENDING" },
+        { "fieldPath": "rating",       "order": "DESCENDING" }
       ]
     }
   ],

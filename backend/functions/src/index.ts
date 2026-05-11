@@ -3,7 +3,7 @@ import * as admin from 'firebase-admin';
 // Initialize once — all other modules import via shared/utils.ts helpers
 admin.initializeApp();
 
-export { onUserCreate }       from './auth/onUserCreate';
+export { initUserProfile }    from './auth/onUserCreate';
 export { updateMyRole }       from './auth/updateMyRole';
 export { createBooking }      from './booking/createBooking';
 export { updateBookingStatus } from './booking/updateBookingStatus';

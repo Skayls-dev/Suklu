@@ -70,7 +70,19 @@ class AuthRepository {
 
   // ── Sign out ───────────────────────────────────────────────────────────────
   Future<void> signOut() async {
-    await GoogleSignIn().signOut();
+    final signedInWithGoogle = _auth.currentUser?.providerData.any(
+          (provider) => provider.providerId == 'google.com',
+        ) ??
+        false;
+
+    if (signedInWithGoogle) {
+      try {
+        await GoogleSignIn().signOut();
+      } catch (_) {
+        // Web requires a configured client ID for GoogleSignIn initialization.
+        // FirebaseAuth.signOut is sufficient for non-Google sessions and as a fallback.
+      }
+    }
     await _auth.signOut();
   }
 

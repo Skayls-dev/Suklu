@@ -43,6 +43,11 @@ class _AiTutorScreenState extends ConsumerState<AiTutorScreen> {
   Widget build(BuildContext context) {
     final messages  = ref.watch(aiChatProvider);
     final isLoading = ref.watch(aiChatProvider.notifier).isLoading;
+    final showTypingIndicator =
+      isLoading &&
+      (messages.isEmpty ||
+        messages.last.role != 'assistant' ||
+        messages.last.content.isEmpty);
 
     return Scaffold(
       appBar: AppBar(
@@ -67,7 +72,7 @@ class _AiTutorScreenState extends ConsumerState<AiTutorScreen> {
                 : ListView.builder(
                     controller: _scrollCtrl,
                     padding: AppSpacing.pagePadding,
-                    itemCount: messages.length + (isLoading ? 1 : 0),
+                    itemCount: messages.length + (showTypingIndicator ? 1 : 0),
                     itemBuilder: (context, i) {
                       if (i == messages.length) return const _TypingIndicator();
                       return _MessageBubble(message: messages[i]);

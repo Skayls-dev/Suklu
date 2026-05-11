@@ -1,0 +1,140 @@
+import 'package:data_table_2/data_table_2.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/providers/firebase_providers.dart';
+import '../shared/widgets/admin_data_table.dart';
+import '../shared/widgets/confirm_dialog.dart';
+import 'widgets/ai_logs_panel.dart';
+import 'widgets/flagged_content_panel.dart';
+import 'widgets/upload_rag_dialog.dart';
+
+final ragDocumentsProvider = StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
+  final fs = ref.watch(firestoreProvider);
+  return fs
+      .collection('rag_documents')
+      .orderBy('createdAt', descending: true)
+      .limit(100)
+      .snapshots()
+      .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+});
+
+class ContentPage extends ConsumerWidget {
+  const ContentPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final role = ref.watch(adminRoleProvider).valueOrNull;
+
+    return DefaultTabController(
+      length: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const TabBar(
+              tabs: [
+                Tab(text: 'Curriculum RAG'),
+                Tab(text: 'Contenus signalés'),
+                Tab(text: 'Logs IA'),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _RagDocumentsPanel(role: role),
+                  const FlaggedContentPanel(),
+                  const AiLogsPanel(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RagDocumentsPanel extends ConsumerWidget {
+  const _RagDocumentsPanel({required this.role});
+
+  final String? role;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(ragDocumentsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            ElevatedButton.icon(
+              onPressed: () => showUploadRagDialog(context),
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Ingérer un nouveau document'),
+            ),
+            const SizedBox(width: 12),
+            const Text('TODO: appeler POST /ingest/delete pour purger Qdrant.'),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: async.when(
+            loading: () => const AdminDataTable(columns: [], rows: [], isLoading: true),
+            error: (e, _) => Center(child: Text('Erreur: $e')),
+            data: (docs) {
+              final rows = docs
+                  .map(
+                    (d) => DataRow2(cells: [
+                      DataCell(Text((d['filename'] ?? '—').toString())),
+                      DataCell(Text((d['subject'] ?? '—').toString())),
+                      DataCell(Text((d['gradeLevel'] ?? '—').toString())),
+                      DataCell(Text((d['country'] ?? '—').toString())),
+                      DataCell(Text('${d['chunkCount'] ?? 0}')),
+                      DataCell(Text((d['status'] ?? '—').toString())),
+                      DataCell(Text((d['createdAt'] ?? '—').toString())),
+                      DataCell(
+                        role == 'super_admin'
+                            ? IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                onPressed: () => _deleteDoc(context, ref, d['id'].toString()),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                    ]),
+                  )
+                  .toList();
+
+              return AdminDataTable(
+                columns: const [
+                  DataColumn2(label: Text('Fichier'), size: ColumnSize.L),
+                  DataColumn2(label: Text('Matière'), size: ColumnSize.S),
+                  DataColumn2(label: Text('Niveau'), size: ColumnSize.S),
+                  DataColumn2(label: Text('Pays'), size: ColumnSize.S),
+                  DataColumn2(label: Text('Chunks'), size: ColumnSize.S),
+                  DataColumn2(label: Text('Statut'), size: ColumnSize.S),
+                  DataColumn2(label: Text('Uploadé le'), size: ColumnSize.M),
+                  DataColumn2(label: Text('Actions'), size: ColumnSize.S),
+                ],
+                rows: rows,
+                isLoading: false,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _deleteDoc(BuildContext context, WidgetRef ref, String id) async {
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Supprimer ce document',
+      message: 'Confirmer la suppression du document RAG ?',
+    );
+    if (!ok) return;
+    await ref.read(firestoreProvider).collection('rag_documents').doc(id).delete();
+  }
+}

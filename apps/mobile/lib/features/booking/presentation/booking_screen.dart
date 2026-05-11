@@ -27,7 +27,10 @@ final _subjectsListProvider = FutureProvider.autoDispose<List<Map<String, dynami
 });
 
 class BookingScreen extends ConsumerWidget {
-  const BookingScreen({super.key});
+  const BookingScreen({this.initialTutorId, this.initialSubjectId, super.key});
+
+  final String? initialTutorId;
+  final String? initialSubjectId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,7 +68,10 @@ class BookingScreen extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
       ),
-      builder: (_) => const _NewBookingForm(),
+      builder: (_) => _NewBookingForm(
+        initialTutorId: initialTutorId,
+        initialSubjectId: initialSubjectId,
+      ),
     );
   }
 }
@@ -115,7 +121,11 @@ class _BookingCard extends ConsumerWidget {
 }
 
 class _NewBookingForm extends ConsumerStatefulWidget {
-  const _NewBookingForm();
+  const _NewBookingForm({this.initialTutorId, this.initialSubjectId});
+
+  final String? initialTutorId;
+  final String? initialSubjectId;
+
   @override
   ConsumerState<_NewBookingForm> createState() => _NewBookingFormState();
 }
@@ -123,6 +133,13 @@ class _NewBookingForm extends ConsumerStatefulWidget {
 class _NewBookingFormState extends ConsumerState<_NewBookingForm> {
   String?  _selectedSubjectId;
   String?  _selectedTutorId;
+    @override
+    void initState() {
+      super.initState();
+      _selectedTutorId = widget.initialTutorId;
+      _selectedSubjectId = widget.initialSubjectId;
+    }
+
   DateTime _scheduledAt     = DateTime.now().add(const Duration(days: 1));
   int      _durationMinutes = 60;
 

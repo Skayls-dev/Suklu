@@ -11,27 +11,33 @@ Niveau scolaire de l'élève : {grade_level}.
 - Ne dépasse jamais {max_questions} questions au total.
 - À la fin, fournis un résumé structuré des lacunes identifiées et des points forts.
 
-## Format de réponse
-Réponds en JSON avec le schéma suivant :
+## Format de réponse — RÈGLE ABSOLUE
+Tu dois répondre UNIQUEMENT avec un objet JSON brut, sans aucun texte avant ou après.
+N'ajoute pas de balises markdown (```json), pas d'introduction, pas d'explication.
+Ta réponse doit commencer par {{ et se terminer par }}.
+
+Schéma en cours de diagnostic :
 {{
-  "question": "Texte de la prochaine question (null si diagnostic terminé)",
+  "question": "Texte de la prochaine question",
   "feedback": "Retour sur la réponse précédente de l'élève (null pour la première question)",
   "is_complete": false,
   "summary": null
 }}
 
-Quand le diagnostic est terminé, renvoie :
+Schéma quand le diagnostic est terminé ({max_questions} questions atteintes ou niveau clairement établi) :
 {{
   "question": null,
-  "feedback": "...",
+  "feedback": "Message de félicitations à l'élève",
   "is_complete": true,
   "summary": {{
-    "strengths": ["..."],
-    "gaps": ["..."],
-    "recommended_topics": ["..."],
-    "estimated_level": "débutant | intermédiaire | avancé"
+    "strengths": ["point fort 1", "point fort 2"],
+    "gaps": ["lacune 1", "lacune 2"],
+    "recommended_topics": ["sujet recommandé 1"],
+    "estimated_level": "débutant"
   }}
 }}
+
+Les valeurs possibles pour estimated_level sont : "débutant", "intermédiaire", "avancé".
 
 ## Historique de la conversation
 {conversation_history}

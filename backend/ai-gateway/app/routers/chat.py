@@ -10,9 +10,11 @@ Flow:
 """
 from pathlib import Path
 from typing import Annotated
+import json
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.llm.llm_client import BaseLLMClient, get_llm_client
@@ -23,6 +25,10 @@ log    = structlog.get_logger()
 router = APIRouter()
 
 _PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "chat_v1.txt"
+_RAG_UNAVAILABLE_NOTICE = (
+    "La base de connaissance est temporairement inaccessible. "
+    "Je peux quand meme vous aider, mais ma reponse ne s'appuiera pas sur les contenus du programme."
+)
 
 
 class Message(BaseModel):
@@ -43,20 +49,21 @@ class ChatResponse(BaseModel):
     reply: str
 
 
-@router.post("", response_model=ChatResponse)
-async def chat(
-    body:    ChatRequest,
-    request: Request,
-    llm:     Annotated[BaseLLMClient, Depends(get_llm_client)],
-    qdrant:  Annotated[QdrantService, Depends(get_qdrant_service)],
-) -> ChatResponse:
-    user_id = request.state.user.get("uid", "anonymous")
+def _sse_event(event: str, payload: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
-    # ── RAG retrieval ─────────────────────────────────────────────────────────
+
+async def _prepare_chat_context(
+    body: ChatRequest,
+    llm: BaseLLMClient,
+    qdrant: QdrantService,
+) -> tuple[str, bool, int]:
     rag_chunks_count = 0
+    rag_unavailable = False
+
     try:
         query_vector = await llm.embed(body.message)
-        chunks       = await qdrant.search(
+        chunks = await qdrant.search(
             query_vector=query_vector,
             limit=5,
             filter_payload={"subject": body.subject, "grade_level": body.grade_level},
@@ -67,12 +74,15 @@ async def chat(
         ) or "Aucun extrait disponible pour ce sujet."
     except Exception as exc:
         log.warning("chat.rag_failed", error=str(exc))
-        rag_context = "Aucun extrait disponible."
+        rag_unavailable = True
+        rag_context = (
+            "Base de connaissance temporairement inaccessible. "
+            "Ne pretends pas t'appuyer sur des extraits du programme dans cette reponse."
+        )
 
-    # ── Build prompt ──────────────────────────────────────────────────────────
     history_text = "\n".join(
         f"{m.role.capitalize()}: {m.content}"
-        for m in body.conversation_history[-10:]  # Keep last 10 turns to stay within context window
+        for m in body.conversation_history[-10:]
     )
 
     system_prompt = _PROMPT_PATH.read_text(encoding="utf-8").format(
@@ -83,6 +93,22 @@ async def chat(
         conversation_history=history_text,
         user_message=body.message,
     )
+    return system_prompt, rag_unavailable, rag_chunks_count
+
+
+@router.post("", response_model=ChatResponse)
+async def chat(
+    body:    ChatRequest,
+    request: Request,
+    llm:     Annotated[BaseLLMClient, Depends(get_llm_client)],
+    qdrant:  Annotated[QdrantService, Depends(get_qdrant_service)],
+) -> ChatResponse:
+    user_id = request.state.user.get("uid", "anonymous")
+    system_prompt, rag_unavailable, rag_chunks_count = await _prepare_chat_context(
+        body=body,
+        llm=llm,
+        qdrant=qdrant,
+    )
 
     messages = [{"role": "user", "content": body.message}]
 
@@ -91,6 +117,9 @@ async def chat(
     except Exception as exc:
         log.error("chat.llm_error", error=str(exc))
         raise HTTPException(status_code=502, detail="Erreur du service IA") from exc
+
+    if rag_unavailable:
+        reply = f"{_RAG_UNAVAILABLE_NOTICE}\n\n{reply}"
 
     await log_ai_response(
         user_id=user_id,
@@ -101,7 +130,72 @@ async def chat(
         response=reply,
         prompt_tokens=usage.prompt_tokens,
         completion_tokens=usage.completion_tokens,
-        extra={"subject": body.subject, "rag_chunks_used": rag_chunks_count},
+        extra={
+            "subject": body.subject,
+            "rag_chunks_used": rag_chunks_count,
+            "rag_unavailable": rag_unavailable,
+        },
     )
 
     return ChatResponse(reply=reply)
+
+
+@router.post("/stream")
+async def chat_stream(
+    body: ChatRequest,
+    request: Request,
+    llm: Annotated[BaseLLMClient, Depends(get_llm_client)],
+    qdrant: Annotated[QdrantService, Depends(get_qdrant_service)],
+) -> StreamingResponse:
+    user_id = request.state.user.get("uid", "anonymous")
+    system_prompt, rag_unavailable, rag_chunks_count = await _prepare_chat_context(
+        body=body,
+        llm=llm,
+        qdrant=qdrant,
+    )
+    messages = [{"role": "user", "content": body.message}]
+
+    async def event_generator():
+        full_reply = ""
+        usage_prompt_tokens = 0
+        usage_completion_tokens = 0
+
+        try:
+            if rag_unavailable:
+                prefix = f"{_RAG_UNAVAILABLE_NOTICE}\n\n"
+                full_reply += prefix
+                yield _sse_event("delta", {"text": prefix})
+
+            async for chunk in llm.chat_stream(messages, system_prompt=system_prompt):
+                full_reply += chunk
+                yield _sse_event("delta", {"text": chunk})
+
+            await log_ai_response(
+                user_id=user_id,
+                session_id=body.session_id,
+                endpoint="chat_stream",
+                model="llm",
+                prompt=body.message,
+                response=full_reply,
+                prompt_tokens=usage_prompt_tokens,
+                completion_tokens=usage_completion_tokens,
+                extra={
+                    "subject": body.subject,
+                    "rag_chunks_used": rag_chunks_count,
+                    "rag_unavailable": rag_unavailable,
+                },
+            )
+            yield _sse_event("done", {"reply": full_reply})
+        except Exception as exc:
+            log.error("chat.stream_error", error=str(exc))
+            yield _sse_event("error", {"message": "Erreur du service IA"})
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

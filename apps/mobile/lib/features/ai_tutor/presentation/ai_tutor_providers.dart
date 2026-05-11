@@ -9,6 +9,13 @@ class ChatMessage {
   final String content;
 
   Map<String, String> toMap() => {'role': role, 'content': content};
+
+  ChatMessage copyWith({String? role, String? content}) {
+    return ChatMessage(
+      role: role ?? this.role,
+      content: content ?? this.content,
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,27 +39,45 @@ class AiChatNotifier extends Notifier<List<ChatMessage>> {
   Future<void> sendMessage(String text) async {
     if (isLoading) return;
 
-    state    = [...state, ChatMessage(role: 'user', content: text)];
+    state = [
+      ...state,
+      ChatMessage(role: 'user', content: text),
+      const ChatMessage(role: 'assistant', content: ''),
+    ];
     isLoading = true;
 
     try {
-      final result = await ref.read(aiTutorRepositoryProvider).sendChat(
-        message:    text,
-        subject:    subject,
+      var streamedReply = '';
+      await for (final chunk in ref.read(aiTutorRepositoryProvider).streamChat(
+        message: text,
+        subject: subject,
         gradeLevel: gradeLevel,
-        sessionId:  sessionId,
-        history:    state.map((m) => m.toMap()).toList(),
-      );
-      final reply = result['reply'] as String? ?? 'Désolé, une erreur est survenue.';
-      state = [...state, ChatMessage(role: 'assistant', content: reply)];
+        sessionId: sessionId,
+        history: state
+            .where((m) => m.content.isNotEmpty)
+            .map((m) => m.toMap())
+            .toList(),
+      )) {
+        streamedReply += chunk;
+        final updated = [...state];
+        final last = updated.last;
+        updated[updated.length - 1] = last.copyWith(content: streamedReply);
+        state = updated;
+      }
+
+      if (streamedReply.isEmpty) {
+        final updated = [...state];
+        updated[updated.length - 1] = updated.last.copyWith(
+          content: 'Désolé, aucune réponse n\'a été reçue.',
+        );
+        state = updated;
+      }
     } catch (_) {
-      state = [
-        ...state,
-        const ChatMessage(
-          role: 'assistant',
-          content: 'Connexion impossible au service IA. Vérifiez votre connexion.',
-        ),
-      ];
+      final updated = [...state];
+      updated[updated.length - 1] = updated.last.copyWith(
+        content: 'Connexion impossible au service IA. Vérifiez votre connexion.',
+      );
+      state = updated;
     } finally {
       isLoading = false;
     }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/ai_tutor/presentation/ai_tutor_screen.dart';
 import '../../features/auth/presentation/auth_providers.dart';
+import '../../features/auth/presentation/admin_access_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/phone_login_screen.dart';
 import '../constants/app_colors.dart';
@@ -15,6 +16,8 @@ import '../../features/booking/domain/booking_model.dart';
 import '../../features/dashboard/presentation/parent_dashboard.dart';
 import '../../features/dashboard/presentation/student_dashboard.dart';
 import '../../features/dashboard/presentation/tutor_dashboard.dart';
+import '../../features/marketplace/presentation/marketplace_screen.dart';
+import '../../features/marketplace/presentation/tutor_detail_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/onboarding/presentation/diagnostic_screen.dart';
 import '../../features/parent_linking/presentation/link_request_screen.dart';
@@ -42,6 +45,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login',       builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/phone-login', builder: (_, __) => const PhoneLoginScreen()),
       GoRoute(path: '/register',    builder: (_, __) => const RegisterScreen()),
+      GoRoute(path: '/admin-access', builder: (_, __) => const AdminAccessScreen()),
       GoRoute(path: '/onboarding',  builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/diagnostic',  builder: (_, __) => const DiagnosticScreen()),
 
@@ -50,7 +54,28 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => _StudentShell(child: child),
         routes: [
           GoRoute(path: '/student/dashboard', builder: (_, __) => const StudentDashboard()),
-          GoRoute(path: '/student/booking',   builder: (_, __) => const BookingScreen()),
+          GoRoute(
+            path: '/student/booking',
+            builder: (_, s) {
+              final extra = s.extra as Map<String, dynamic>?;
+              return BookingScreen(
+                initialTutorId: extra?['tutorId'] as String?,
+                initialSubjectId: extra?['subjectId'] as String?,
+              );
+            },
+          ),
+          GoRoute(
+            path: '/student/marketplace',
+            builder: (_, s) => MarketplaceScreen(
+              initialSubjectId: s.uri.queryParameters['subjectId'],
+            ),
+          ),
+          GoRoute(
+            path: '/student/marketplace/:tutorId',
+            builder: (_, s) => TutorDetailScreen(
+              tutorId: s.pathParameters['tutorId']!,
+            ),
+          ),
           GoRoute(
             path: '/student/booking/:id',
             builder: (_, s) => BookingDetailScreen(
@@ -59,8 +84,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/student/session/:sessionId',
-            builder: (_, s) => SessionScreen(sessionId: s.pathParameters['sessionId']!),
+            path: '/student/session/:bookingId',
+            builder: (_, s) => SessionScreen(bookingId: s.pathParameters['bookingId']!),
           ),
           GoRoute(path: '/student/ai-tutor',  builder: (_, __) => const AiTutorScreen()),
           GoRoute(path: '/student/progress',  builder: (_, __) => const ProgressScreen()),
@@ -83,8 +108,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/tutor/ai-tutor', builder: (_, __) => const AiTutorScreen()),
           GoRoute(
-            path: '/tutor/session/:sessionId',
-            builder: (_, s) => SessionScreen(sessionId: s.pathParameters['sessionId']!),
+            path: '/tutor/session/:bookingId',
+            builder: (_, s) => SessionScreen(bookingId: s.pathParameters['bookingId']!),
           ),
         ],
       ),
@@ -123,7 +148,7 @@ class _SplashScreen extends StatelessWidget {
 }
 
 class _ErrorScreen extends StatelessWidget {
-  const _ErrorScreen({this.error, super.key});
+  const _ErrorScreen({this.error});
   final String? error;
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -138,8 +163,9 @@ class _StudentShell extends ConsumerWidget {
   int _selectedIndex(BuildContext context) {
     final loc = GoRouterState.of(context).matchedLocation;
     if (loc.startsWith('/student/booking'))   return 1;
-    if (loc.startsWith('/student/ai-tutor'))  return 2;
-    if (loc.startsWith('/student/progress'))  return 3;
+    if (loc.startsWith('/student/marketplace')) return 2;
+    if (loc.startsWith('/student/ai-tutor'))  return 3;
+    if (loc.startsWith('/student/progress'))  return 4;
     return 0;
   }
 
@@ -154,9 +180,10 @@ class _StudentShell extends ConsumerWidget {
           switch (i) {
             case 0: context.go('/student/dashboard'); break;
             case 1: context.go('/student/booking');   break;
-            case 2: context.go('/student/ai-tutor');  break;
-            case 3: context.go('/student/progress');  break;
-            case 4:
+            case 2: context.go('/student/marketplace'); break;
+            case 3: context.go('/student/ai-tutor');  break;
+            case 4: context.go('/student/progress');  break;
+            case 5:
               showModalBottomSheet(
                 context: context,
                 builder: (_) => _ProfileSheet(ref: ref),
@@ -167,6 +194,7 @@ class _StudentShell extends ConsumerWidget {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined),       selectedIcon: Icon(Icons.home),       label: 'Accueil'),
           NavigationDestination(icon: Icon(Icons.calendar_today_outlined), selectedIcon: Icon(Icons.calendar_today), label: 'Cours'),
+          NavigationDestination(icon: Icon(Icons.search_outlined),     selectedIcon: Icon(Icons.search),     label: 'Tuteurs'),
           NavigationDestination(icon: Icon(Icons.smart_toy_outlined),  selectedIcon: Icon(Icons.smart_toy),  label: 'IA'),
           NavigationDestination(icon: Icon(Icons.bar_chart_outlined),  selectedIcon: Icon(Icons.bar_chart),  label: 'Progrès'),
           NavigationDestination(icon: Icon(Icons.person_outline),      selectedIcon: Icon(Icons.person),     label: 'Profil'),

@@ -8,6 +8,7 @@ Flow:
 4. We log the exchange to Firestore.
 """
 from pathlib import Path
+import json
 from typing import Annotated
 
 import structlog
@@ -44,6 +45,39 @@ def _build_history_text(messages: list[Message]) -> str:
     return "\n".join(f"{m.role.capitalize()}: {m.content}" for m in messages)
 
 
+def _extract_json_object(text: str) -> dict:
+    """Extract and parse the first JSON object from a model response."""
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.replace("```json", "").replace("```", "").strip()
+
+    # Fast path when response is already a clean JSON object.
+    try:
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+
+    # Fallback: find the first '{' and try progressive decode until valid JSON is found.
+    start = cleaned.find("{")
+    if start == -1:
+        raise ValueError("No JSON object found in diagnostic response")
+
+    decoder = json.JSONDecoder()
+    probe = cleaned[start:]
+    for i in range(len(probe)):
+        chunk = probe[: i + 1]
+        try:
+            parsed, _ = decoder.raw_decode(chunk)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            continue
+
+    raise ValueError("Unable to parse diagnostic JSON object")
+
+
 @router.post("", response_model=DiagnosticResponse)
 async def run_diagnostic(
     body:    DiagnosticRequest,
@@ -64,10 +98,28 @@ async def run_diagnostic(
         messages = [{"role": m.role, "content": m.content} for m in body.conversation_history]
 
     try:
-        response_text, usage = await llm.chat(messages, system_prompt=system_prompt)
+        response_text, usage = await llm.chat(
+            messages,
+            system_prompt=system_prompt,
+            temperature=0.1,
+            response_format="json_object",
+        )
     except Exception as exc:
         log.error("diagnostic.llm_error", error=str(exc))
         raise HTTPException(status_code=502, detail="Erreur du service IA") from exc
+
+    try:
+        parsed = _extract_json_object(response_text)
+    except Exception as exc:
+        log.warning("diagnostic.invalid_json", error=str(exc), raw=response_text[:700])
+        parsed = {
+            "question": "Je n'ai pas pu analyser la réponse. Peux-tu reformuler en une phrase simple ?",
+            "feedback": "Merci pour ta réponse.",
+            "is_complete": False,
+            "summary": None,
+        }
+
+    normalized_raw = json.dumps(parsed, ensure_ascii=False)
 
     await log_ai_response(
         user_id=user_id,
@@ -75,9 +127,9 @@ async def run_diagnostic(
         endpoint="diagnostic",
         model="llm",
         prompt=system_prompt[:500],
-        response=response_text,
+        response=normalized_raw,
         prompt_tokens=usage.prompt_tokens,
         completion_tokens=usage.completion_tokens,
     )
 
-    return DiagnosticResponse(raw=response_text)
+    return DiagnosticResponse(raw=normalized_raw)

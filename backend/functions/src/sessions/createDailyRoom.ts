@@ -4,11 +4,62 @@ import { db, serverTs, logger } from '../shared/utils';
 import { getPlatformConfig } from '../config/platformConfig';
 import { UserRole } from '../shared/types';
 
+async function ensureTutorStudentLink(params: {
+  tutorId: string;
+  studentId: string;
+  bookingId: string;
+  sessionId: string;
+}): Promise<void> {
+  const { tutorId, studentId, bookingId, sessionId } = params;
+  const linkId = `${tutorId}_${studentId}`;
+
+  await db().collection('tutor_student_links').doc(linkId).set({
+    id: linkId,
+    tutorId,
+    studentId,
+    bookingIds:     [bookingId],
+    sessionIds:     [sessionId],
+    createdAt:      serverTs(),
+    updatedAt:      serverTs(),
+    lastBookingId:  bookingId,
+    lastSessionId:  sessionId,
+  }, { merge: true });
+}
+
+function extractRoomName(roomUrl: string): string {
+  const cleanUrl = roomUrl.split('?')[0];
+  const parsed = new URL(cleanUrl);
+  const segments = parsed.pathname.split('/').filter(Boolean);
+  if (segments.length === 0) {
+    throw new Error('Invalid Daily room URL');
+  }
+  return segments[segments.length - 1];
+}
+
+async function buildJoinUrl(roomUrl: string, dailyKey: string): Promise<string> {
+  const roomName = extractRoomName(roomUrl);
+  const tokenExp = Math.floor(Date.now() / 1000) + 4 * 60 * 60;
+
+  const tokenRes = await axios.post(
+    'https://api.daily.co/v1/meeting-tokens',
+    {
+      properties: {
+        room_name: roomName,
+        exp: tokenExp,
+      },
+    },
+    { headers: { Authorization: `Bearer ${dailyKey}`, 'Content-Type': 'application/json' } },
+  );
+
+  const token = tokenRes.data.token as string;
+  return `${roomUrl.split('?')[0]}?t=${encodeURIComponent(token)}`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// createDailyRoom — Callable (tutor | academic_staff | super_admin)
+// createDailyRoom — Callable
 //
-// Provisions a Daily.co video room for a booking and writes the room URL to
-// the session document.
+// - Tutor/admin can create the room if it does not exist yet.
+// - Tutor and student can request a fresh join URL (tokenized) when a room exists.
 //
 // Room modes (configured in /platform_config/global.roomMode):
 //   ephemeral  — unique room per booking, expires 1 hour after scheduled end.
@@ -24,9 +75,9 @@ export const createDailyRoom = onCall(
     }
 
     const callerRole = request.auth.token['role'] as UserRole | undefined;
-    if (callerRole !== 'tutor' && callerRole !== 'academic_staff' && callerRole !== 'super_admin') {
-      throw new HttpsError('permission-denied', 'Réservé aux tuteurs');
-    }
+    const isTutorSide =
+      callerRole === 'tutor' || callerRole === 'academic_staff' || callerRole === 'super_admin';
+    const isStudentSide = callerRole === 'student';
 
     const { bookingId } = request.data as { bookingId: string };
     if (!bookingId) {
@@ -39,9 +90,21 @@ export const createDailyRoom = onCall(
       throw new HttpsError('not-found', 'Réservation introuvable');
     }
     const booking = bookingSnap.data()!;
-    if (booking['tutorId'] !== request.auth.uid && callerRole !== 'super_admin') {
-      throw new HttpsError('permission-denied', 'Vous n\'êtes pas le tuteur de cette session');
+    const isBookingTutor = booking['tutorId'] === request.auth.uid;
+    const isBookingStudent = booking['studentId'] === request.auth.uid;
+
+    if (!isTutorSide && !isStudentSide) {
+      throw new HttpsError('permission-denied', 'Rôle non autorisé pour cette session');
     }
+
+    if (callerRole === 'super_admin') {
+      // allowed
+    } else if (isTutorSide && !isBookingTutor) {
+      throw new HttpsError('permission-denied', 'Vous n\'êtes pas le tuteur de cette session');
+    } else if (isStudentSide && !isBookingStudent) {
+      throw new HttpsError('permission-denied', 'Vous n\'êtes pas l\'étudiant de cette session');
+    }
+
     if (booking['status'] !== 'confirmed') {
       throw new HttpsError('failed-precondition', 'La réservation doit être confirmée avant de créer une salle');
     }
@@ -60,7 +123,26 @@ export const createDailyRoom = onCall(
       .get();
 
     if (!sessionSnap.empty && sessionSnap.docs[0].data()['roomUrl']) {
-      return { roomUrl: sessionSnap.docs[0].data()['roomUrl'] };
+      const existingRoomUrl = sessionSnap.docs[0].data()['roomUrl'] as string;
+      await ensureTutorStudentLink({
+        tutorId,
+        studentId: booking['studentId'] as string,
+        bookingId,
+        sessionId: sessionSnap.docs[0].id,
+      });
+      const joinUrl = await buildJoinUrl(existingRoomUrl, dailyKey);
+
+      return {
+        roomUrl: joinUrl,
+        sessionId: sessionSnap.docs[0].id,
+      };
+    }
+
+    if (!isTutorSide) {
+      throw new HttpsError(
+        'failed-precondition',
+        'La salle n\'est pas encore créée. Le tuteur doit d\'abord créer la salle.',
+      );
     }
 
     // ── Provision Daily.co room ─────────────────────────────────────────────
@@ -68,9 +150,13 @@ export const createDailyRoom = onCall(
     const scheduledAt = booking['scheduledAt'];
     const durationMin = booking['durationMinutes'] as number;
 
-    // Expiry = scheduled time + duration + 30 min grace period
-    const expTs = Math.floor(
-      (scheduledAt.toDate().getTime() + (durationMin + 30) * 60 * 1000) / 1000,
+    // Expiry must be in the future for Daily.co.
+    // For old or delayed sessions, fallback to now-based expiry.
+    const nowMs       = Date.now();
+    const scheduledMs = scheduledAt?.toDate?.().getTime?.() ?? nowMs;
+    const baseStartMs = Math.max(nowMs, scheduledMs);
+    const expTs       = Math.floor(
+      (baseStartMs + (durationMin + 30) * 60 * 1000) / 1000,
     );
 
     if (roomMode === 'persistent') {
@@ -115,6 +201,8 @@ export const createDailyRoom = onCall(
       logger.info('createDailyRoom: created ephemeral room', { bookingId });
     }
 
+    const joinUrl = await buildJoinUrl(roomUrl, dailyKey);
+
     // ── Create or update session document ───────────────────────────────────
     const sessionRef = sessionSnap.empty
       ? db().collection('sessions').doc()
@@ -134,10 +222,17 @@ export const createDailyRoom = onCall(
       updatedAt:  serverTs(),
     }, { merge: true });
 
+    await ensureTutorStudentLink({
+      tutorId,
+      studentId: booking['studentId'] as string,
+      bookingId,
+      sessionId: sessionRef.id,
+    });
+
     logger.info('createDailyRoom: session document updated', {
       sessionId: sessionRef.id, roomUrl, roomMode,
     });
 
-    return { roomUrl, sessionId: sessionRef.id };
+    return { roomUrl: joinUrl, sessionId: sessionRef.id };
   },
 );

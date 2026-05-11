@@ -60,7 +60,7 @@ class TutorDashboard extends ConsumerWidget {
               icon:    Icons.video_call_outlined,
               title:   'Démarrer une session',
               color:   AppColors.info,
-              onTap:   () => context.go('/tutor/session/demo'),
+              onTap:   () => context.go('/tutor/booking'),
             ),
 
             AppSpacing.gapLg,

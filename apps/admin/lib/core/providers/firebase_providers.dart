@@ -7,10 +7,15 @@ final authStateProvider = StreamProvider<User?>(
   (ref) => FirebaseAuth.instance.authStateChanges(),
 );
 
+final adminRoleProvider = FutureProvider.autoDispose<String?>((ref) async {
+  final result = await FirebaseAuth.instance.currentUser?.getIdTokenResult(true);
+  return result?.claims?['role'] as String?;
+});
+
 final firestoreProvider = Provider<FirebaseFirestore>(
   (_) => FirebaseFirestore.instance,
 );
 
 final functionsProvider = Provider<FirebaseFunctions>(
-  (_) => FirebaseFunctions.instanceFor(region: 'us-central1'),
+  (_) => FirebaseFunctions.instanceFor(region: 'europe-west1'),
 );

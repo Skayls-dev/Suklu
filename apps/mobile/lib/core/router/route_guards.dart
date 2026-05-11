@@ -55,7 +55,7 @@ String? _homeForRole(String? role) => switch (role) {
   'student'        => '/student/dashboard',
   'tutor'          => '/tutor/dashboard',
   'parent'         => '/parent/dashboard',
-  'academic_staff' => '/student/dashboard', // TODO: staff dashboard
-  'super_admin'    => '/student/dashboard', // TODO: admin panel route
+  'academic_staff' => '/admin-access',
+  'super_admin'    => '/admin-access',
   _                => '/onboarding',
 };

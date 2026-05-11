@@ -83,7 +83,11 @@ class SafetyFilterMiddleware(BaseHTTPMiddleware):
         if any(path.startswith(prefix) for prefix in _PROTECTED_PREFIXES):
             # Dev bypass — skip token verification when SKIP_AUTH=true
             if settings.skip_auth:
-                request.state.user = {"uid": "dev-user", "email": "dev@local", "role": "student"}
+                request.state.user = {
+                    "uid": "dev-user",
+                    "email": "dev@local",
+                    "role": request.headers.get("X-Dev-Role", "student"),
+                }
             else:
                 auth_header = request.headers.get("Authorization", "")
                 if not auth_header.startswith("Bearer "):
@@ -137,11 +141,9 @@ class SafetyFilterMiddleware(BaseHTTPMiddleware):
                         content={"detail": "Contenu inapproprié détecté"},
                     )
 
-                # Re-attach body so downstream handlers can read it
-                async def receive():
-                    return {"type": "http.request", "body": body_bytes}
-
-                request._receive = receive  # noqa: SLF001
+                # Request.body() caches bytes in Starlette, so downstream
+                # handlers can parse the same body without manually overriding
+                # request._receive (which breaks StreamingResponse disconnect checks).
 
             except Exception as exc:  # noqa: BLE001
                 log.error("safety_filter.error", error=str(exc))

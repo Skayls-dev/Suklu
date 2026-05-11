@@ -50,15 +50,22 @@ service cloud.firestore {
         && request.auth.uid in studentDoc.data.parentIds;
     }
 
+    // Checks whether the current tutor has at least one materialized session
+    // link with the given studentId.
+    function isTutorLinkedToStudent(studentId) {
+      return isTutor()
+        && exists(
+          /databases/$(database)/documents/tutor_student_links/$(request.auth.uid + '_' + studentId)
+        );
+    }
+
     // ── /users ────────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read: if isAuthed() && (
         isOwner(userId)
         || isStaff()
         || isParentOf(userId)
-        // Tutors may read any user profile (needed to display student info in
-        // session view). TODO: tighten to session-linked students post-MVP.
-        || isTutor()
+        || isTutorLinkedToStudent(userId)
       );
 
       // Only onUserCreate Cloud Function writes the initial document.
@@ -74,6 +81,14 @@ service cloud.firestore {
       allow update: if isStaff();
 
       allow delete: if isSuperAdmin();
+    }
+
+    // ── /tutor_student_links ────────────────────────────────────────────────
+    // Internal relation ledger derived from confirmed sessions.
+    // No direct client access; only security rules use its existence checks.
+    match /tutor_student_links/{linkId} {
+      allow read: if false;
+      allow write: if false;
     }
 
     // ── /sessions ─────────────────────────────────────────────────────────────
@@ -169,8 +184,19 @@ service cloud.firestore {
     // ── /ai_logs ──────────────────────────────────────────────────────────────
     // Written exclusively by the AI Gateway service account.
     match /ai_logs/{logId} {
-      allow read: if isStaff();
+      allow read: if isStaff()
+               || (isAuthed() && resource.data.userId == request.auth.uid);
       allow write: if false; // service account bypasses rules
+    }
+
+    // ── /tutor_profiles ────────────────────────────────────────────────────────
+    // Public marketplace listing — all authenticated users can browse.
+    // Only staff (or Cloud Functions) may write.
+    match /tutor_profiles/{tutorId} {
+      allow read:   if isAuthed();
+      allow create: if isStaff();
+      allow update: if isStaff() || (isTutor() && isOwner(tutorId));
+      allow delete: if isSuperAdmin();
     }
 
     // ── /platform_config ──────────────────────────────────────────────────────

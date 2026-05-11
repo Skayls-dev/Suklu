@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../auth/presentation/auth_providers.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/providers/firebase_providers.dart';
@@ -12,6 +13,37 @@ final bookingByIdProvider = FutureProvider.autoDispose.family<BookingModel?, Str
   final snap = await ref.watch(firestoreProvider).collection('bookings').doc(id).get();
   if (!snap.exists) return null;
   return BookingModel.fromFirestore(snap);
+});
+
+final tutorDisplayNameProvider = FutureProvider.autoDispose.family<String, String>((ref, tutorId) async {
+  final firestore = ref.watch(firestoreProvider);
+
+  final tutorProfileById = await firestore.collection('tutor_profiles').doc(tutorId).get();
+  if (tutorProfileById.exists) {
+    final data = tutorProfileById.data() ?? <String, dynamic>{};
+    final fullName = (data['fullName'] ?? '').toString().trim();
+    if (fullName.isNotEmpty) return fullName;
+  }
+
+  final tutorProfileByUid = await firestore
+      .collection('tutor_profiles')
+      .where('uid', isEqualTo: tutorId)
+      .limit(1)
+      .get();
+  if (tutorProfileByUid.docs.isNotEmpty) {
+    final data = tutorProfileByUid.docs.first.data();
+    final fullName = (data['fullName'] ?? '').toString().trim();
+    if (fullName.isNotEmpty) return fullName;
+  }
+
+  final userDoc = await firestore.collection('users').doc(tutorId).get();
+  if (userDoc.exists) {
+    final data = userDoc.data() ?? <String, dynamic>{};
+    final displayName = (data['displayName'] ?? '').toString().trim();
+    if (displayName.isNotEmpty) return displayName;
+  }
+
+  return tutorId;
 });
 
 class BookingDetailScreen extends ConsumerWidget {
@@ -74,6 +106,10 @@ class _DetailViewState extends ConsumerState<_DetailView> {
   Widget build(BuildContext context) {
     final fmt = DateFormat('EEEE d MMMM yyyy – HH:mm', 'fr');
     final color = _statusColor();
+    final role = ref.watch(authStateNotifierProvider).value?.role.toFirestoreString();
+    final canOpenMarketplace = role == 'student';
+    final tutorNameAsync = ref.watch(tutorDisplayNameProvider(booking.tutorId));
+    final tutorName = tutorNameAsync.valueOrNull ?? 'Chargement...';
 
     return Scaffold(
       appBar: AppBar(
@@ -104,6 +140,19 @@ class _DetailViewState extends ConsumerState<_DetailView> {
               icon: Icons.school_outlined,
               title: 'Matière',
               value: booking.subjectId,
+              onTap: canOpenMarketplace
+                  ? () => context.push('/student/marketplace?subjectId=${booking.subjectId}')
+                  : null,
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            _InfoCard(
+              icon: Icons.person_outline,
+              title: 'Tuteur',
+              value: tutorName,
+              onTap: canOpenMarketplace
+                  ? () => context.push('/student/marketplace/${booking.tutorId}')
+                  : null,
             ),
             const SizedBox(height: AppSpacing.md),
 
@@ -152,8 +201,17 @@ class _DetailViewState extends ConsumerState<_DetailView> {
                 label: 'Rejoindre la session',
                 color: AppColors.primary,
                 onPressed: () {
+                  final role = ref.read(authStateNotifierProvider).value?.role.toFirestoreString();
+                  if (role == 'student') {
+                    context.push('/student/session/${booking.id}');
+                    return;
+                  }
+                  if (role == 'tutor') {
+                    context.push('/tutor/session/${booking.id}');
+                    return;
+                  }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sessions vidéo — disponible prochainement')),
+                    const SnackBar(content: Text('Accès session indisponible pour ce rôle')),
                   );
                 },
               ),
@@ -203,34 +261,46 @@ class _DetailViewState extends ConsumerState<_DetailView> {
 }
 
 class _InfoCard extends StatelessWidget {
-  const _InfoCard({required this.icon, required this.title, required this.value});
+  const _InfoCard({
+    required this.icon,
+    required this.title,
+    required this.value,
+    this.onTap,
+  });
   final IconData icon;
   final String   title;
   final String   value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.primary),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelSmall
-                        ?.copyWith(color: Colors.grey[600])),
-                const SizedBox(height: 2),
-                Text(value, style: Theme.of(context).textTheme.bodyLarge),
-              ],
+    child: InkWell(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.primary),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: Colors.grey[600])),
+                  const SizedBox(height: 2),
+                  Text(value, style: Theme.of(context).textTheme.bodyLarge),
+                ],
+              ),
             ),
-          ),
-        ],
+            if (onTap != null)
+              const Icon(Icons.chevron_right, color: AppColors.grey400),
+          ],
+        ),
       ),
     ),
   );
