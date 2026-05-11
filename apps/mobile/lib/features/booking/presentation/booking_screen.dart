@@ -260,11 +260,16 @@ class _NewBookingFormState extends ConsumerState<_NewBookingForm>
               loading: () => const LinearProgressIndicator(),
               error:   (e, _) => Text('Erreur matières: $e'),
               data:    (subjects) => DropdownButtonFormField<String>(
+                isExpanded: true,
                 value: _selectedSubjectId,
                 decoration: const InputDecoration(labelText: 'Matière'),
                 items: subjects.map((s) => DropdownMenuItem(
                   value: s['id'] as String,
-                  child: Text('${s['icon'] ?? ''} ${s['name'] ?? s['id']}'),
+                  child: Text(
+                    '${s['icon'] ?? ''} ${s['name'] ?? s['id']}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 )).toList(),
                 onChanged: (v) => setState(() => _selectedSubjectId = v),
               ),
@@ -276,11 +281,16 @@ class _NewBookingFormState extends ConsumerState<_NewBookingForm>
               loading: () => const LinearProgressIndicator(),
               error:   (e, _) => Text('Erreur tuteurs: $e'),
               data:    (tutors) => DropdownButtonFormField<String>(
+                isExpanded: true,
                 value: _selectedTutorId,
                 decoration: const InputDecoration(labelText: 'Tuteur'),
                 items: tutors.map((t) => DropdownMenuItem(
                   value: t['id'] as String,
-                  child: Text(t['fullName'] as String? ?? t['id'] as String),
+                  child: Text(
+                    t['fullName'] as String? ?? t['id'] as String,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 )).toList(),
                 onChanged: (v) => setState(() => _selectedTutorId = v),
               ),
@@ -302,6 +312,7 @@ class _NewBookingFormState extends ConsumerState<_NewBookingForm>
 
             // Durée
             DropdownButtonFormField<int>(
+              isExpanded: true,
               value: _durationMinutes,
               decoration: const InputDecoration(labelText: 'Durée'),
               items: const [

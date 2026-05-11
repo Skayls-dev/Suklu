@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import * as admin from 'firebase-admin';
 import {
-  CreateBookingRequest,
   BookingDocument,
   UserRole,
 } from '../shared/types';
@@ -37,7 +37,46 @@ export const createBooking = onCall(
       );
     }
 
-    const data = request.data as CreateBookingRequest;
+    const data = request.data as {
+      tutorId: string;
+      subjectId: string;
+      scheduledAt: any;
+      durationMinutes: 30 | 60 | 90;
+      sessionType: 'one_on_one' | 'group';
+      studentId?: string;
+    };
+
+    const scheduledAtDate = (() => {
+      const raw = data.scheduledAt;
+      if (raw instanceof admin.firestore.Timestamp) {
+        return raw.toDate();
+      }
+      if (raw instanceof Date) {
+        return raw;
+      }
+      if (typeof raw === 'number') {
+        return new Date(raw);
+      }
+      if (typeof raw === 'string') {
+        return new Date(raw);
+      }
+
+      if (typeof raw === 'object' && raw !== null) {
+        const rawRecord = raw as unknown as Record<string, unknown>;
+        const maybeSeconds = rawRecord['_seconds'];
+        const maybeNanos = rawRecord['_nanoseconds'];
+        if (typeof maybeSeconds === 'number') {
+          return new Date(maybeSeconds * 1000 + Math.floor((typeof maybeNanos === 'number' ? maybeNanos : 0) / 1000000));
+        }
+      }
+
+      return null;
+    })();
+
+    if (!scheduledAtDate || Number.isNaN(scheduledAtDate.getTime())) {
+      throw new HttpsError('invalid-argument', 'scheduledAt invalide');
+    }
+    const scheduledAt = admin.firestore.Timestamp.fromDate(scheduledAtDate);
 
     // ── Validate tutor ──────────────────────────────────────────────────────
     const tutorSnap = await db().collection('users').doc(data.tutorId).get();
@@ -71,7 +110,7 @@ export const createBooking = onCall(
     const conflictSnap = await db()
       .collection('bookings')
       .where('tutorId',     '==', data.tutorId)
-      .where('scheduledAt', '==', data.scheduledAt)
+      .where('scheduledAt', '==', scheduledAt)
       .where('status',      'in', ['pending', 'confirmed'])
       .limit(1)
       .get();
@@ -102,16 +141,16 @@ export const createBooking = onCall(
       studentId,
       tutorId:         data.tutorId,
       subjectId:       data.subjectId,
-      scheduledAt:     data.scheduledAt,
+      scheduledAt,
       durationMinutes: data.durationMinutes,
       sessionType:     data.sessionType,
-      parentId:        callerRole === 'parent' ? callerId : undefined,
       status:          'pending',
       reminderSent:    false,
       totalAmount,
       currency,
       createdAt:       serverTs(),
       updatedAt:       serverTs(),
+      ...(callerRole === 'parent' ? { parentId: callerId } : {}),
     };
 
     await bookingRef.set(booking);
