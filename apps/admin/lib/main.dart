@@ -43,8 +43,8 @@ void main() async {
   // Connect to local Firebase emulators for development
   try {
     await FirebaseAuth.instance.useAuthEmulator('localhost', 9099);
-    // Note: Firestore emulator is not supported on web platform
-    // Web clients will connect to production by default
+    // useFirestoreEmulator returns void (not a Future), do NOT await it
+    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
   } catch (e) {
     // Emulator already initialized or not running
   }
