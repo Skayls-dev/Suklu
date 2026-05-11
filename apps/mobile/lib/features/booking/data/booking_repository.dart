@@ -62,8 +62,6 @@ class BookingRepository {
       return;
     }
 
-    query = query.orderBy('scheduledAt', descending: false).limit(50);
-
     try {
       await for (final snapshot in query.snapshots(includeMetadataChanges: true)) {
         final mapped = snapshot.docs
@@ -71,7 +69,8 @@ class BookingRepository {
                   doc,
                   isFromCache: snapshot.metadata.isFromCache,
                 ))
-            .toList();
+            .toList()
+          ..sort((left, right) => left.scheduledAt.compareTo(right.scheduledAt));
         yield mapped;
       }
     } on FirebaseException catch (e) {
@@ -80,9 +79,11 @@ class BookingRepository {
       }
 
       final cached = await query.get(const GetOptions(source: Source.cache));
-      yield cached.docs
+      final mapped = cached.docs
           .map((doc) => BookingModel.fromFirestore(doc, isFromCache: true))
-          .toList();
+          .toList()
+        ..sort((left, right) => left.scheduledAt.compareTo(right.scheduledAt));
+      yield mapped;
     }
   }
 }

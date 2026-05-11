@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,7 +16,9 @@ class SukluApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    unawaited(ref.read(notificationHandlerServiceProvider).init(router));
+    if (!kIsWeb) {
+      unawaited(ref.read(notificationHandlerServiceProvider).init(router));
+    }
 
     return MaterialApp.router(
       title: 'Suklu',

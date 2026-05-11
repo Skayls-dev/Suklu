@@ -84,28 +84,50 @@ export const createDailyRoom = onCall(
       throw new HttpsError('invalid-argument', 'bookingId requis');
     }
 
+    logger.info('createDailyRoom: called', {
+      callerUid: request.auth.uid,
+      callerRole,
+      bookingId,
+      isTutorSide,
+      isStudentSide,
+    });
+
     // ── Validate booking ────────────────────────────────────────────────────
     const bookingSnap = await db().collection('bookings').doc(bookingId).get();
     if (!bookingSnap.exists) {
+      logger.warn('createDailyRoom: booking not found', { bookingId });
       throw new HttpsError('not-found', 'Réservation introuvable');
     }
     const booking = bookingSnap.data()!;
     const isBookingTutor = booking['tutorId'] === request.auth.uid;
     const isBookingStudent = booking['studentId'] === request.auth.uid;
 
+    logger.info('createDailyRoom: booking found', {
+      bookingId,
+      status: booking['status'],
+      tutorId: booking['tutorId'],
+      studentId: booking['studentId'],
+      isBookingTutor,
+      isBookingStudent,
+    });
+
     if (!isTutorSide && !isStudentSide) {
+      logger.warn('createDailyRoom: role denied', { callerRole });
       throw new HttpsError('permission-denied', 'Rôle non autorisé pour cette session');
     }
 
     if (callerRole === 'super_admin') {
       // allowed
     } else if (isTutorSide && !isBookingTutor) {
+      logger.warn('createDailyRoom: not booking tutor', { callerUid: request.auth.uid, tutorId: booking['tutorId'] });
       throw new HttpsError('permission-denied', 'Vous n\'êtes pas le tuteur de cette session');
     } else if (isStudentSide && !isBookingStudent) {
+      logger.warn('createDailyRoom: not booking student', { callerUid: request.auth.uid, studentId: booking['studentId'] });
       throw new HttpsError('permission-denied', 'Vous n\'êtes pas l\'étudiant de cette session');
     }
 
     if (booking['status'] !== 'confirmed') {
+      logger.warn('createDailyRoom: booking not confirmed', { bookingId, status: booking['status'] });
       throw new HttpsError('failed-precondition', 'La réservation doit être confirmée avant de créer une salle');
     }
 

@@ -21,6 +21,11 @@ class FcmTokenService {
 
   Future<void> initAndSave(String uid) async {
     try {
+      if (kIsWeb) {
+        debugPrint('FCM disabled on web');
+        return;
+      }
+
       final settings = await _messaging.requestPermission(
         alert: true,
         badge: true,

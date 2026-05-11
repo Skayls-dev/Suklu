@@ -192,8 +192,37 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     if (mounted) context.pop();
   }
 
+  String _friendlyCreateError(Object error) {
+    final msg = error.toString().toLowerCase();
+    if (msg.contains('failed-precondition') || msg.contains('412')) {
+      return 'La réservation doit être confirmée avant de démarrer la session.';
+    }
+    if (msg.contains('permission-denied') || msg.contains('403')) {
+      return 'Vous n\'êtes pas autorisé à créer cette salle.';
+    }
+    if (msg.contains('not-found') || msg.contains('404')) {
+      return 'Réservation introuvable.';
+    }
+    return 'Impossible de créer la salle vidéo : $error';
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<({String roomUrl, String sessionId})?>>(
+      createRoomProvider(widget.bookingId),
+      (previous, next) {
+        if (next.hasError && !next.isLoading && previous?.isLoading == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_friendlyCreateError(next.error!)),
+              backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 6),
+            ),
+          );
+        }
+      },
+    );
+
     final createdState = ref.watch(createRoomProvider(widget.bookingId));
     final createdData = createdState.valueOrNull;
 

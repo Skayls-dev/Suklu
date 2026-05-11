@@ -163,45 +163,47 @@ class _MessageCard extends StatelessWidget {
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(icon, size: 56, color: AppColors.primary),
-                  AppSpacing.gapMd,
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  AppSpacing.gapSm,
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  if (errorText != null) ...[
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Icon(icon, size: 56, color: AppColors.primary),
                     AppSpacing.gapMd,
                     Text(
-                      errorText!,
+                      title,
+                      style: Theme.of(context).textTheme.headlineSmall,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.error),
                     ),
-                  ],
-                  if (trailing != null) trailing!,
-                  AppSpacing.gapLg,
-                  FilledButton(
-                    onPressed: onPrimary,
-                    child: Text(primaryLabel),
-                  ),
-                  if (secondaryLabel != null && onSecondary != null) ...[
                     AppSpacing.gapSm,
-                    OutlinedButton(
-                      onPressed: onSecondary,
-                      child: Text(secondaryLabel!),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                      textAlign: TextAlign.center,
                     ),
+                    if (errorText != null) ...[
+                      AppSpacing.gapMd,
+                      Text(
+                        errorText!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.error),
+                      ),
+                    ],
+                    if (trailing != null) trailing!,
+                    AppSpacing.gapLg,
+                    FilledButton(
+                      onPressed: onPrimary,
+                      child: Text(primaryLabel),
+                    ),
+                    if (secondaryLabel != null && onSecondary != null) ...[
+                      AppSpacing.gapSm,
+                      OutlinedButton(
+                        onPressed: onSecondary,
+                        child: Text(secondaryLabel!),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

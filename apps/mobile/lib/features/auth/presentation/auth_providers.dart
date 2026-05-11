@@ -96,6 +96,10 @@ class AuthStateNotifier extends AsyncNotifier<AuthUser?>
   }
 
   void _saveFcmTokenIfAuthenticated() {
+    if (kIsWeb) {
+      return;
+    }
+
     final uid = state.value?.uid;
     if (uid == null || uid.isEmpty) {
       return;
