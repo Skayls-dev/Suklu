@@ -34,44 +34,81 @@ class PaymentsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 1100;
     final role = ref.watch(adminRoleProvider).valueOrNull;
     final status = ref.watch(_paymentStatusFilterProvider);
     final provider = ref.watch(_paymentProviderFilterProvider);
     final async = ref.watch(_paymentsProvider((status: status, provider: provider)));
 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isCompact ? 12 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text('Transactions', style: Theme.of(context).textTheme.headlineSmall),
-              const Spacer(),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'all', label: Text('Tous')),
-                  ButtonSegment(value: 'pending', label: Text('pending')),
-                  ButtonSegment(value: 'success', label: Text('success')),
-                  ButtonSegment(value: 'failed', label: Text('failed')),
-                  ButtonSegment(value: 'refunded', label: Text('refunded')),
-                ],
-                selected: {status},
-                onSelectionChanged: (v) => ref.read(_paymentStatusFilterProvider.notifier).state = v.first,
-              ),
-              const SizedBox(width: 8),
-              DropdownButton<String>(
-                value: provider,
-                items: const [
-                  DropdownMenuItem(value: 'all', child: Text('Tous providers')),
-                  DropdownMenuItem(value: 'flutterwave', child: Text('flutterwave')),
-                  DropdownMenuItem(value: 'wave', child: Text('wave')),
-                  DropdownMenuItem(value: 'orange_money', child: Text('orange_money')),
-                ],
-                onChanged: (v) => ref.read(_paymentProviderFilterProvider.notifier).state = v ?? 'all',
-              ),
-            ],
-          ),
+          if (isCompact)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Transactions', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'all', label: Text('Tous')),
+                      ButtonSegment(value: 'pending', label: Text('pending')),
+                      ButtonSegment(value: 'success', label: Text('success')),
+                      ButtonSegment(value: 'failed', label: Text('failed')),
+                      ButtonSegment(value: 'refunded', label: Text('refunded')),
+                    ],
+                    selected: {status},
+                    onSelectionChanged: (v) => ref.read(_paymentStatusFilterProvider.notifier).state = v.first,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButton<String>(
+                  isExpanded: true,
+                  value: provider,
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('Tous providers')),
+                    DropdownMenuItem(value: 'flutterwave', child: Text('flutterwave')),
+                    DropdownMenuItem(value: 'wave', child: Text('wave')),
+                    DropdownMenuItem(value: 'orange_money', child: Text('orange_money')),
+                  ],
+                  onChanged: (v) => ref.read(_paymentProviderFilterProvider.notifier).state = v ?? 'all',
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Text('Transactions', style: Theme.of(context).textTheme.headlineSmall),
+                const Spacer(),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'all', label: Text('Tous')),
+                    ButtonSegment(value: 'pending', label: Text('pending')),
+                    ButtonSegment(value: 'success', label: Text('success')),
+                    ButtonSegment(value: 'failed', label: Text('failed')),
+                    ButtonSegment(value: 'refunded', label: Text('refunded')),
+                  ],
+                  selected: {status},
+                  onSelectionChanged: (v) => ref.read(_paymentStatusFilterProvider.notifier).state = v.first,
+                ),
+                const SizedBox(width: 8),
+                DropdownButton<String>(
+                  value: provider,
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('Tous providers')),
+                    DropdownMenuItem(value: 'flutterwave', child: Text('flutterwave')),
+                    DropdownMenuItem(value: 'wave', child: Text('wave')),
+                    DropdownMenuItem(value: 'orange_money', child: Text('orange_money')),
+                  ],
+                  onChanged: (v) => ref.read(_paymentProviderFilterProvider.notifier).state = v ?? 'all',
+                ),
+              ],
+            ),
           const SizedBox(height: 12),
           async.when(
             loading: () => const LinearProgressIndicator(),

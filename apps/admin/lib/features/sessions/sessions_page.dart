@@ -28,22 +28,26 @@ class SessionsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 1100;
     final status = ref.watch(_sessionStatusFilterProvider);
     final range = ref.watch(_sessionDateRangeProvider);
     final async = ref.watch(_sessionsProvider(status));
 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isCompact ? 12 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Sessions', style: Theme.of(context).textTheme.headlineSmall),
-              Row(
-                children: [
-                  SegmentedButton<String>(
+          if (isCompact)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Sessions', style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(value: 'all', label: Text('Toutes')),
                       ButtonSegment(value: 'scheduled', label: Text('Planifiées')),
@@ -53,30 +57,76 @@ class SessionsPage extends ConsumerWidget {
                     selected: {status},
                     onSelectionChanged: (v) => ref.read(_sessionStatusFilterProvider.notifier).state = v.first,
                   ),
-                  const SizedBox(width: 12),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final now = DateTime.now();
-                      final selected = await showDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(now.year - 2),
-                        lastDate: DateTime(now.year + 2),
-                      );
-                      ref.read(_sessionDateRangeProvider.notifier).state = selected;
-                    },
-                    icon: const Icon(Icons.date_range),
-                    label: Text(range == null ? 'Période' : 'Période active'),
-                  ),
-                  if (range != null)
-                    IconButton(
-                      tooltip: 'Réinitialiser',
-                      onPressed: () => ref.read(_sessionDateRangeProvider.notifier).state = null,
-                      icon: const Icon(Icons.clear),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final now = DateTime.now();
+                        final selected = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(now.year - 2),
+                          lastDate: DateTime(now.year + 2),
+                        );
+                        ref.read(_sessionDateRangeProvider.notifier).state = selected;
+                      },
+                      icon: const Icon(Icons.date_range),
+                      label: Text(range == null ? 'Période' : 'Période active'),
                     ),
-                ],
-              ),
-            ],
-          ),
+                    if (range != null)
+                      OutlinedButton.icon(
+                        onPressed: () => ref.read(_sessionDateRangeProvider.notifier).state = null,
+                        icon: const Icon(Icons.clear),
+                        label: const Text('Réinitialiser'),
+                      ),
+                  ],
+                ),
+              ],
+            )
+          else
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Sessions', style: Theme.of(context).textTheme.headlineSmall),
+                Row(
+                  children: [
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'all', label: Text('Toutes')),
+                        ButtonSegment(value: 'scheduled', label: Text('Planifiées')),
+                        ButtonSegment(value: 'in_progress', label: Text('En cours')),
+                        ButtonSegment(value: 'completed', label: Text('Terminées')),
+                      ],
+                      selected: {status},
+                      onSelectionChanged: (v) => ref.read(_sessionStatusFilterProvider.notifier).state = v.first,
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final now = DateTime.now();
+                        final selected = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(now.year - 2),
+                          lastDate: DateTime(now.year + 2),
+                        );
+                        ref.read(_sessionDateRangeProvider.notifier).state = selected;
+                      },
+                      icon: const Icon(Icons.date_range),
+                      label: Text(range == null ? 'Période' : 'Période active'),
+                    ),
+                    if (range != null)
+                      IconButton(
+                        tooltip: 'Réinitialiser',
+                        onPressed: () => ref.read(_sessionDateRangeProvider.notifier).state = null,
+                        icon: const Icon(Icons.clear),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           const SizedBox(height: 16),
           Expanded(
             child: async.when(

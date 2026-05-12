@@ -88,6 +88,8 @@ class LinkRequestsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 1100;
     final filter = ref.watch(_linkFilterProvider);
     final async  = ref.watch(_linkRequestsProvider(filter));
 
@@ -95,23 +97,43 @@ class LinkRequestsPage extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          child: Row(
-            children: [
-              Text('Liaisons parent-enfant', style: Theme.of(context).textTheme.headlineSmall),
-              const Spacer(),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'pending_admin_verification', label: Text('En attente')),
-                  ButtonSegment(value: 'all',      label: Text('Toutes')),
-                  ButtonSegment(value: 'approved', label: Text('Approuvées')),
-                  ButtonSegment(value: 'rejected', label: Text('Refusées')),
-                ],
-                selected: {filter},
-                onSelectionChanged: (s) => ref.read(_linkFilterProvider.notifier).state = s.first,
-              ),
-            ],
-          ),
+          padding: EdgeInsets.fromLTRB(isCompact ? 12 : 24, isCompact ? 12 : 24, isCompact ? 12 : 24, 0),
+          child: isCompact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Liaisons parent-enfant', style: Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(value: 'pending_admin_verification', label: Text('En attente')),
+                          ButtonSegment(value: 'approved', label: Text('Approuvées')),
+                          ButtonSegment(value: 'rejected', label: Text('Refusées')),
+                        ],
+                        selected: {filter},
+                        onSelectionChanged: (v) => ref.read(_linkFilterProvider.notifier).state = v.first,
+                      ),
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Text('Liaisons parent-enfant', style: Theme.of(context).textTheme.headlineSmall),
+                    const Spacer(),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'pending_admin_verification', label: Text('En attente')),
+                        ButtonSegment(value: 'all', label: Text('Toutes')),
+                        ButtonSegment(value: 'approved', label: Text('Approuvées')),
+                        ButtonSegment(value: 'rejected', label: Text('Refusées')),
+                      ],
+                      selected: {filter},
+                      onSelectionChanged: (s) => ref.read(_linkFilterProvider.notifier).state = s.first,
+                    ),
+                  ],
+                ),
         ),
         const SizedBox(height: 16),
         Expanded(
@@ -135,11 +157,13 @@ class _LinkRequestsTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 1100;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
       child: DataTable2(
-        columnSpacing: 12,
-        horizontalMargin: 12,
+        columnSpacing: isCompact ? 10 : 12,
+        horizontalMargin: isCompact ? 8 : 12,
         headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
         columns: const [
           DataColumn2(label: Text('Email parent'),  size: ColumnSize.L),
