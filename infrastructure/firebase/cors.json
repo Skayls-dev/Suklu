@@ -1,0 +1,14 @@
+[
+  {
+    "origin": ["http://localhost:*", "https://localhost:*"],
+    "method": ["GET", "HEAD", "DELETE"],
+    "responseHeader": ["Content-Type", "Cache-Control"],
+    "maxAgeSeconds": 3600
+  },
+  {
+    "origin": ["https://*.web.app", "https://*.firebaseapp.com"],
+    "method": ["GET", "HEAD", "DELETE"],
+    "responseHeader": ["Content-Type", "Cache-Control"],
+    "maxAgeSeconds": 3600
+  }
+]
