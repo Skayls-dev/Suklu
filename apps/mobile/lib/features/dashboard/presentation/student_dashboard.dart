@@ -72,6 +72,12 @@ class StudentDashboard extends ConsumerWidget {
                   onTap: () => context.go('/student/booking'),
                 ),
                 _QuickAction(
+                  icon: Icons.group_outlined,
+                  label: 'Mes sessions groupe',
+                  color: AppColors.primary,
+                  onTap: () => context.push('/student/group-sessions'),
+                ),
+                _QuickAction(
                   icon: Icons.person_outline,
                   label: 'Mon profil',
                   color: AppColors.tutorAccent,

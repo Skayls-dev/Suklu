@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
 import '../../../core/providers/firebase_providers.dart';
+import '../../auth/presentation/auth_providers.dart';
 
 final groupSessionSlotsProvider = StreamProvider.autoDispose<List<Map<String, dynamic>>>((ref) {
   final fs = ref.watch(firestoreProvider);
@@ -29,6 +30,21 @@ final _subjectProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?
   final fs = ref.watch(firestoreProvider);
   final snap = await fs.collection('subjects').doc(subjectId).get();
   return snap.exists ? snap.data() : null;
+});
+
+final _myEnrollmentProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, slotId) async {
+  final uid = ref.watch(authStateNotifierProvider).value?.uid;
+  if (uid == null || slotId.isEmpty) return null;
+  
+  final fs = ref.watch(firestoreProvider);
+  final snap = await fs
+      .collection('group_enrollments')
+      .where('slotId', isEqualTo: slotId)
+      .where('studentId', isEqualTo: uid)
+      .limit(1)
+      .get();
+  
+  return snap.docs.isNotEmpty ? {'id': snap.docs.first.id, ...snap.docs.first.data()} : null;
 });
 
 class GroupSessionsScreen extends ConsumerWidget {
@@ -88,9 +104,11 @@ class _GroupSlotCard extends ConsumerWidget {
     final current = (slot['currentParticipants'] as num?)?.toInt() ?? 0;
     final max = (slot['maxParticipants'] as num?)?.toInt() ?? 1;
     final ratio = max <= 0 ? 0.0 : (current / max).clamp(0.0, 1.0);
+    final slotStatus = slot['status']?.toString() ?? 'open';
 
     final tutorAsync = ref.watch(_tutorProfileProvider(tutorId));
     final subjectAsync = ref.watch(_subjectProvider(subjectId));
+    final enrollmentAsync = ref.watch(_myEnrollmentProvider(slot['id'] as String? ?? ''));
 
     return Card(
       child: Padding(
@@ -140,9 +158,43 @@ class _GroupSlotCard extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                FilledButton(
-                  onPressed: () => _enroll(context),
-                  child: const Text('S\'inscrire'),
+                enrollmentAsync.when(
+                  loading: () => FilledButton(
+                    onPressed: null,
+                    style: FilledButton.styleFrom(backgroundColor: Colors.grey),
+                    child: const SizedBox(
+                      height: 14,
+                      width: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                  ),
+                  error: (_, __) => FilledButton(
+                    onPressed: current < max && slotStatus == 'open' ? () => _enroll(context) : null,
+                    child: const Text('S\'inscrire'),
+                  ),
+                  data: (enrollment) {
+                    if (enrollment != null) {
+                      final status = enrollment['status']?.toString() ?? '';
+                      final statusLabel = status == 'pending_payment' ? 'En attente' : 'Inscrit ✓';
+                      return Chip(
+                        label: Text(statusLabel, style: const TextStyle(fontSize: 12)),
+                        backgroundColor: status == 'pending_payment' ? Colors.orange.withAlpha(30) : AppColors.success.withAlpha(30),
+                        labelStyle: TextStyle(
+                          color: status == 'pending_payment' ? Colors.orange : AppColors.success,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      );
+                    }
+                    return FilledButton(
+                      onPressed: current < max && slotStatus == 'open' ? () => _enroll(context) : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: current >= max || slotStatus != 'open' ? Colors.grey : AppColors.primary,
+                      ),
+                      child: Text(
+                        current >= max ? 'Complet' : slotStatus != 'open' ? 'Fermé' : 'S\'inscrire',
+                      ),
+                    );
+                  },
                 ),
               ],
             ),

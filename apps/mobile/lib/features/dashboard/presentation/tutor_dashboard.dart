@@ -57,6 +57,12 @@ class TutorDashboard extends ConsumerWidget {
               onTap:   () => context.push('/tutor/profile/edit'),
             ),
             _ActionTile(
+              icon:    Icons.group_add_outlined,
+              title:   'Créer une session groupe',
+              color:   AppColors.primary,
+              onTap:   () => context.push('/tutor/group-slot/new'),
+            ),
+            _ActionTile(
               icon:    Icons.schedule_outlined,
               title:   'Gérer mon agenda',
               color:   AppColors.primary,
