@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.middleware.safety_filter import SafetyFilterMiddleware
-from app.routers import chat, diagnostic, ingest, quiz
+from app.routers import chat, diagnostic, ingest, quiz, session_summary
 
 log = structlog.get_logger()
 
@@ -69,6 +69,7 @@ app.include_router(diagnostic.router, prefix="/diagnostic", tags=["diagnostic"])
 app.include_router(chat.router,       prefix="/chat",       tags=["chat"])
 app.include_router(ingest.router,     prefix="/ingest",     tags=["ingest"])
 app.include_router(quiz.router,       prefix="/quiz",       tags=["quiz"])
+app.include_router(session_summary.router, prefix="/session-summary", tags=["session-summary"])
 
 
 @app.get("/health", include_in_schema=False)

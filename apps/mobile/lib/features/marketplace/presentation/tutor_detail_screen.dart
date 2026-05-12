@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../../../core/widgets/review_card.dart';
 import 'marketplace_providers.dart';
 import 'widgets/availability_grid.dart';
 import 'widgets/subject_chip.dart';
@@ -28,6 +29,7 @@ class TutorDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tutorAsync = ref.watch(tutorProfileProvider(tutorId));
+    final reviewsAsync = ref.watch(tutorReviewsProvider(tutorId));
     final selectedSubjectId = ref.watch(marketplaceFilterProvider).subjectId;
 
     return Scaffold(
@@ -188,6 +190,28 @@ class TutorDetailScreen extends ConsumerWidget {
                         Text('Disponibilités', style: Theme.of(context).textTheme.titleLarge),
                         AppSpacing.gapSm,
                         AvailabilityGrid(availableSlots: tutor.availableSlots),
+                        AppSpacing.gapLg,
+                        Text('Avis (${tutor.reviewCount})', style: Theme.of(context).textTheme.titleLarge),
+                        AppSpacing.gapSm,
+                        reviewsAsync.when(
+                          loading: () => const LinearProgressIndicator(),
+                          error: (e, _) => Text('Impossible de charger les avis: $e'),
+                          data: (reviews) {
+                            if (reviews.isEmpty) {
+                              return const Text(
+                                'Pas encore d\'avis',
+                                style: TextStyle(color: AppColors.grey600),
+                              );
+                            }
+                            return ListView.separated(
+                              physics: const NeverScrollableScrollPhysics(),
+                              shrinkWrap: true,
+                              itemCount: reviews.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (context, index) => ReviewCard(review: reviews[index]),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),

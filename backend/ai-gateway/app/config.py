@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # ── Firebase ──────────────────────────────────────────────────────────────
     firebase_service_account_path: Path | None = None
     gcp_project_id: str = "suklu-prod"
+    gcs_bucket: str = ""
 
     # ── Safety ────────────────────────────────────────────────────────────────
     content_moderation_enabled: bool = True

@@ -17,13 +17,20 @@ import '../../features/dashboard/presentation/parent_dashboard.dart';
 import '../../features/dashboard/presentation/student_dashboard.dart';
 import '../../features/dashboard/presentation/tutor_dashboard.dart';
 import '../../features/marketplace/presentation/marketplace_screen.dart';
+import '../../features/marketplace/presentation/group_sessions_screen.dart';
 import '../../features/marketplace/presentation/tutor_detail_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
 import '../../features/onboarding/presentation/diagnostic_screen.dart';
 import '../../features/parent_linking/presentation/link_request_screen.dart';
 import '../../features/payments/presentation/payment_screen.dart';
 import '../../features/progress/presentation/progress_screen.dart';
+import '../providers/data_saver_provider.dart';
+import '../../features/progress/presentation/parent_analytics_screen.dart';
+import '../../features/progress/presentation/my_reviews_screen.dart';
 import '../../features/sessions/presentation/session_screen.dart';
+import '../../features/sessions/presentation/create_group_slot_screen.dart';
+import '../../features/sessions/presentation/session_summary_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
 import '../widgets/offline_banner.dart';
 import 'route_guards.dart';
 
@@ -35,6 +42,7 @@ import 'route_guards.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 final routerProvider = Provider<GoRouter>((ref) {
   final authNotifier = ref.watch(authStateNotifierProvider.notifier);
+  ref.watch(dataSaverBootstrapProvider);
 
   return GoRouter(
     initialLocation: '/splash',
@@ -49,6 +57,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/admin-access', builder: (_, __) => const AdminAccessScreen()),
       GoRoute(path: '/onboarding',  builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/diagnostic',  builder: (_, __) => const DiagnosticScreen()),
+
+      // ── Profile (shared route) ─────────────────────────────────────────────
+      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
 
       // ── Student shell ──────────────────────────────────────────────────────
       ShellRoute(
@@ -78,6 +89,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/student/group-sessions',
+            builder: (_, __) => const GroupSessionsScreen(),
+          ),
+          GoRoute(
             path: '/student/booking/:id',
             builder: (_, s) => BookingDetailScreen(
               bookingId: s.pathParameters['id']!,
@@ -88,8 +103,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/student/session/:bookingId',
             builder: (_, s) => SessionScreen(bookingId: s.pathParameters['bookingId']!),
           ),
+          GoRoute(
+            path: '/student/session-summary/:sessionId',
+            builder: (_, s) => SessionSummaryScreen(sessionId: s.pathParameters['sessionId']!),
+          ),
           GoRoute(path: '/student/ai-tutor',  builder: (_, __) => const AiTutorScreen()),
           GoRoute(path: '/student/progress',  builder: (_, __) => const ProgressScreen()),
+          GoRoute(path: '/student/my-reviews', builder: (_, __) => const MyReviewsScreen()),
           GoRoute(path: '/student/payment',   builder: (_, __) => const PaymentScreen()),
         ],
       ),
@@ -100,6 +120,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/tutor/dashboard', builder: (_, __) => const TutorDashboard()),
           GoRoute(path: '/tutor/booking', builder: (_, __) => const TutorAgendaScreen()),
+          GoRoute(path: '/tutor/group-slot/new', builder: (_, __) => const CreateGroupSlotScreen()),
           GoRoute(
             path: '/tutor/booking/:id',
             builder: (_, s) => BookingDetailScreen(
@@ -111,6 +132,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/tutor/session/:bookingId',
             builder: (_, s) => SessionScreen(bookingId: s.pathParameters['bookingId']!),
+          ),
+          GoRoute(
+            path: '/tutor/session-summary/:sessionId',
+            builder: (_, s) => SessionSummaryScreen(sessionId: s.pathParameters['sessionId']!),
           ),
         ],
       ),
@@ -129,7 +154,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(path: '/parent/payment',   builder: (_, __) => const PaymentScreen()),
-          GoRoute(path: '/parent/progress',  builder: (_, __) => const ProgressScreen()),
+          GoRoute(path: '/parent/progress',  builder: (_, __) => const ParentAnalyticsScreen()),
+          GoRoute(
+            path: '/parent/session-summary/:sessionId',
+            builder: (_, s) => SessionSummaryScreen(sessionId: s.pathParameters['sessionId']!),
+          ),
           GoRoute(path: '/parent/link-request', builder: (_, __) => const LinkRequestScreen()),
         ],
       ),
@@ -165,8 +194,9 @@ class _StudentShell extends ConsumerWidget {
     final loc = GoRouterState.of(context).matchedLocation;
     if (loc.startsWith('/student/booking'))   return 1;
     if (loc.startsWith('/student/marketplace')) return 2;
-    if (loc.startsWith('/student/ai-tutor'))  return 3;
-    if (loc.startsWith('/student/progress'))  return 4;
+    if (loc.startsWith('/student/group-sessions')) return 3;
+    if (loc.startsWith('/student/ai-tutor'))  return 4;
+    if (loc.startsWith('/student/progress'))  return 5;
     return 0;
   }
 
@@ -187,9 +217,10 @@ class _StudentShell extends ConsumerWidget {
             case 0: context.go('/student/dashboard'); break;
             case 1: context.go('/student/booking');   break;
             case 2: context.go('/student/marketplace'); break;
-            case 3: context.go('/student/ai-tutor');  break;
-            case 4: context.go('/student/progress');  break;
-            case 5:
+            case 3: context.go('/student/group-sessions'); break;
+            case 4: context.go('/student/ai-tutor');  break;
+            case 5: context.go('/student/progress');  break;
+            case 6:
               showModalBottomSheet(
                 context: context,
                 builder: (_) => _ProfileSheet(ref: ref),
@@ -201,6 +232,7 @@ class _StudentShell extends ConsumerWidget {
           NavigationDestination(icon: Icon(Icons.home_outlined),       selectedIcon: Icon(Icons.home),       label: 'Accueil'),
           NavigationDestination(icon: Icon(Icons.calendar_today_outlined), selectedIcon: Icon(Icons.calendar_today), label: 'Cours'),
           NavigationDestination(icon: Icon(Icons.search_outlined),     selectedIcon: Icon(Icons.search),     label: 'Tuteurs'),
+          NavigationDestination(icon: Icon(Icons.groups_outlined),     selectedIcon: Icon(Icons.groups),     label: 'Groupes'),
           NavigationDestination(icon: Icon(Icons.smart_toy_outlined),  selectedIcon: Icon(Icons.smart_toy),  label: 'IA'),
           NavigationDestination(icon: Icon(Icons.bar_chart_outlined),  selectedIcon: Icon(Icons.bar_chart),  label: 'Progrès'),
           NavigationDestination(icon: Icon(Icons.person_outline),      selectedIcon: Icon(Icons.person),     label: 'Profil'),
@@ -317,6 +349,7 @@ class _ProfileSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = ref.read(authStateNotifierProvider).value;
+    
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -335,6 +368,17 @@ class _ProfileSheet extends StatelessWidget {
             Text(user?.displayName ?? '', style: Theme.of(context).textTheme.titleMedium),
             Text(user?.email ?? '', style: Theme.of(context).textTheme.bodySmall),
             const Divider(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  context.push('/profile');
+                },
+                child: const Text('Gérer mon profil'),
+              ),
+            ),
+            const SizedBox(height: 12),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text('Se déconnecter', style: TextStyle(color: Colors.red)),

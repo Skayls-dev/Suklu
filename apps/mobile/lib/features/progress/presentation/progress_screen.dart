@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
@@ -18,7 +19,15 @@ class ProgressScreen extends ConsumerWidget {
     final async = ref.watch(studentProgressProvider(uid));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mes progrès')),
+      appBar: AppBar(
+        title: const Text('Mes progrès'),
+        actions: [
+          TextButton(
+            onPressed: () => context.push('/student/my-reviews'),
+            child: const Text('Mes évaluations'),
+          ),
+        ],
+      ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error:   (e, _) => Center(child: Text('Erreur: $e')),
@@ -124,7 +133,7 @@ class _SubjectProgressCard extends StatelessWidget {
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(subject, style: Theme.of(context).textTheme.titleSmall),
           Text('${(progress * 100).toInt()}%',
-              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
         ]),
         const SizedBox(height: 8),
         LinearProgressIndicator(

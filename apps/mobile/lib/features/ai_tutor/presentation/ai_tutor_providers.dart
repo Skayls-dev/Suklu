@@ -1,22 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/data_saver_provider.dart';
+import '../domain/chat_models.dart';
 import '../data/ai_tutor_repository.dart';
-
-// Chat message model
-class ChatMessage {
-  const ChatMessage({required this.role, required this.content});
-  final String role;    // 'user' | 'assistant'
-  final String content;
-
-  Map<String, String> toMap() => {'role': role, 'content': content};
-
-  ChatMessage copyWith({String? role, String? content}) {
-    return ChatMessage(
-      role: role ?? this.role,
-      content: content ?? this.content,
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AiChatNotifier
@@ -48,20 +34,36 @@ class AiChatNotifier extends Notifier<List<ChatMessage>> {
 
     try {
       var streamedReply = '';
+      var streamImages = <ChatImageRef>[];
       await for (final chunk in ref.read(aiTutorRepositoryProvider).streamChat(
         message: text,
         subject: subject,
         gradeLevel: gradeLevel,
         sessionId: sessionId,
+        includeImages: !ref.read(dataSaverProvider),
         history: state
             .where((m) => m.content.isNotEmpty)
             .map((m) => m.toMap())
             .toList(),
+        onImages: (images) {
+          streamImages = images;
+        },
       )) {
         streamedReply += chunk;
         final updated = [...state];
         final last = updated.last;
         updated[updated.length - 1] = last.copyWith(content: streamedReply);
+        state = updated;
+      }
+
+      final (cleanContent, parsedImages) = parseImageReferences(streamedReply);
+      final finalImages = streamImages.isNotEmpty ? streamImages : parsedImages;
+      if (state.isNotEmpty) {
+        final updated = [...state];
+        updated[updated.length - 1] = updated.last.copyWith(
+          content: cleanContent,
+          images: finalImages,
+        );
         state = updated;
       }
 

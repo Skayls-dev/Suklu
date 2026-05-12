@@ -132,6 +132,58 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    // ── /group_session_slots ───────────────────────────────────────────────
+    match /group_session_slots/{slotId} {
+      // Marketplace visibility for open slots; tutors/staff can read their own/all.
+      allow read: if isAuthed() && (
+        isStaff()
+        || (isTutor() && resource.data.tutorId == request.auth.uid)
+        || resource.data.status == 'open'
+      );
+
+      // Tutors create their own slots; staff may create for operations.
+      allow create: if isAuthed() && (
+        (isTutor() && request.resource.data.tutorId == request.auth.uid)
+        || isStaff()
+      );
+
+      // Tutors can manage only their own slots; staff can manage all.
+      allow update: if isAuthed() && (
+        (isTutor() && resource.data.tutorId == request.auth.uid)
+        || isStaff()
+      );
+      allow delete: if isAuthed() && (
+        (isTutor() && resource.data.tutorId == request.auth.uid)
+        || isSuperAdmin()
+      );
+    }
+
+    // ── /group_enrollments ────────────────────────────────────────────────
+    match /group_enrollments/{enrollmentId} {
+      allow read: if isAuthed() && (
+        isStaff()
+        || resource.data.studentId == request.auth.uid
+        || isParentOf(resource.data.studentId)
+        || (
+          isTutor()
+          && exists(/databases/$(database)/documents/group_session_slots/$(resource.data.slotId))
+          && get(/databases/$(database)/documents/group_session_slots/$(resource.data.slotId)).data.tutorId
+             == request.auth.uid
+        )
+      );
+
+      // Student creates own enrollment; parent can create for linked child.
+      allow create: if isAuthed() && (
+        (isStudent() && request.resource.data.studentId == request.auth.uid)
+        || (isParent() && isParentOf(request.resource.data.studentId))
+        || isStaff()
+      );
+
+      // Direct client updates are limited; operational changes are done server-side.
+      allow update: if isStaff();
+      allow delete: if isSuperAdmin();
+    }
+
     // ── /payments ─────────────────────────────────────────────────────────────
     // Payments are 100 % server-side. No client can create, modify, or delete.
     match /payments/{paymentId} {
@@ -187,6 +239,28 @@ service cloud.firestore {
       allow read: if isStaff()
                || (isAuthed() && resource.data.userId == request.auth.uid);
       allow write: if false; // service account bypasses rules
+    }
+
+    // ── /reviews ─────────────────────────────────────────────────────────────
+    match /reviews/{reviewId} {
+      allow read: if isAuthed() && (
+        isStaff()
+        || resource.data.authorId == request.auth.uid
+        || resource.data.targetId == request.auth.uid
+        || (
+          resource.data.authorRole == 'student'
+          && resource.data.targetRole == 'tutor'
+          && resource.data.isVisible == true
+        )
+      );
+
+      // Review creation must go through submitReview Cloud Function.
+      allow create: if false;
+
+      // Only super_admin can moderate visibility.
+      allow update: if isSuperAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isVisible']);
+      allow delete: if isSuperAdmin();
     }
 
     // ── /tutor_profiles ────────────────────────────────────────────────────────

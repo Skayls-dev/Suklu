@@ -15,6 +15,7 @@ import '../data/session_repository.dart';
 import '../domain/session_model.dart';
 import 'session_providers.dart';
 import 'widgets/pre_session_waiting_screen.dart';
+import 'widgets/review_bottom_sheet.dart';
 import 'widgets/session_controls_overlay.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -185,11 +186,29 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Session terminée')),
+
+    final targetRole = _isTutorSide ? 'student' : 'tutor';
+    final targetName = _isTutorSide ? 'cet élève' : 'votre tuteur';
+
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => ReviewBottomSheet(
+        sessionId: session.id,
+        targetName: targetName,
+        targetRole: targetRole,
+      ),
     );
-    await Future<void>.delayed(const Duration(seconds: 2));
-    if (mounted) context.pop();
+
+    if (!mounted) return;
+    if (_isTutorSide) {
+      context.go('/tutor/session-summary/${session.id}');
+    } else {
+      context.go('/student/session-summary/${session.id}');
+    }
   }
 
   String _friendlyCreateError(Object error) {

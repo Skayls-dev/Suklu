@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/firebase_providers.dart';
+import '../domain/chat_models.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AiTutorRepository
@@ -33,6 +34,7 @@ class AiTutorRepository {
     required String       gradeLevel,
     required String       sessionId,
     required List<Map<String, String>> history,
+    bool includeImages = true,
     String                country = 'Sénégal',
   }) async {
     final token    = await _auth.currentUser!.getIdToken();
@@ -46,6 +48,7 @@ class AiTutorRepository {
           'country':              country,
           'conversation_history': history,
           'session_id':           sessionId,
+          'include_images':       includeImages,
         },
         options: Options(
           headers: {'Authorization': 'Bearer $token'},
@@ -98,6 +101,8 @@ class AiTutorRepository {
     required String gradeLevel,
     required String sessionId,
     required List<Map<String, String>> history,
+    required bool includeImages,
+    void Function(List<ChatImageRef> images)? onImages,
     String country = 'Sénégal',
   }) async* {
     final token = await _auth.currentUser!.getIdToken();
@@ -111,6 +116,7 @@ class AiTutorRepository {
         'country': country,
         'conversation_history': history,
         'session_id': sessionId,
+        'include_images': includeImages,
       },
       options: Options(
         headers: {'Authorization': 'Bearer $token'},
@@ -157,6 +163,19 @@ class AiTutorRepository {
           if (text != null && text.isNotEmpty) {
             yield text;
           }
+        } else if (event == 'images') {
+          final rawImages = (payload['images'] as List?) ?? const [];
+          final parsed = rawImages
+              .map((i) {
+                final map = Map<String, dynamic>.from(i as Map);
+                return ChatImageRef(
+                  url: map['url']?.toString() ?? '',
+                  caption: map['caption']?.toString() ?? '',
+                );
+              })
+              .where((img) => img.url.isNotEmpty)
+              .toList();
+          onImages?.call(parsed);
         } else if (event == 'error') {
           throw Exception(payload['message'] ?? 'Erreur du service IA');
         } else if (event == 'done') {

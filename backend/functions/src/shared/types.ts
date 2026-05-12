@@ -50,6 +50,9 @@ export interface BookingDocument {
   scheduledAt:     admin.firestore.Timestamp | admin.firestore.FieldValue;
   durationMinutes: number;
   sessionType:     SessionType;
+  maxParticipants?: number;
+  enrolledStudentIds?: string[];
+  groupPrice?:      number;
   parentId?:       string;
   status:          BookingStatus;
   sessionId?:      string;
@@ -144,4 +147,52 @@ export interface PaymentDocument {
   createdAt:             admin.firestore.Timestamp | admin.firestore.FieldValue;
   // Raw webhook payload stored for audit trail — never used in business logic
   webhookPayload:        Record<string, unknown>;
+}
+
+// ─── Reviews ───────────────────────────────────────────────────────────────
+export interface ReviewDocument {
+  id:         string;
+  sessionId:  string;
+  bookingId:  string;
+  authorId:   string;
+  authorRole: 'student' | 'tutor';
+  targetId:   string;
+  targetRole: 'tutor' | 'student';
+  rating:     number;
+  comment:    string;
+  isVisible:  boolean;
+  createdAt:  admin.firestore.Timestamp | admin.firestore.FieldValue;
+}
+
+// ─── Group sessions ─────────────────────────────────────────────────────────
+export type GroupSessionSlotStatus = 'open' | 'full' | 'completed' | 'cancelled';
+export type GroupEnrollmentStatus = 'pending_payment' | 'confirmed' | 'cancelled';
+
+export interface GroupSessionSlot {
+  id:                  string;
+  tutorId:             string;
+  subjectId:           string;
+  gradeLevel:          string;
+  scheduledAt:         admin.firestore.Timestamp | admin.firestore.FieldValue;
+  durationMinutes:     number;
+  maxParticipants:     number;
+  currentParticipants: number;
+  enrolledStudentIds?: string[];
+  pricePerStudent:     number;
+  currency:            Currency;
+  status:              GroupSessionSlotStatus;
+  roomUrl?:            string;
+  description?:        string;
+  createdAt:           admin.firestore.Timestamp | admin.firestore.FieldValue;
+  updatedAt:           admin.firestore.Timestamp | admin.firestore.FieldValue;
+}
+
+export interface GroupEnrollment {
+  id:         string;
+  slotId:     string;
+  studentId:  string;
+  parentId?:  string;
+  paymentId?: string;
+  status:     GroupEnrollmentStatus;
+  enrolledAt: admin.firestore.Timestamp | admin.firestore.FieldValue;
 }

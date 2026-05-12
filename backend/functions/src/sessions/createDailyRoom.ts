@@ -36,7 +36,11 @@ function extractRoomName(roomUrl: string): string {
   return segments[segments.length - 1];
 }
 
-async function buildJoinUrl(roomUrl: string, dailyKey: string): Promise<string> {
+async function buildJoinUrlForRole(
+  roomUrl: string,
+  dailyKey: string,
+  isOwner: boolean,
+): Promise<string> {
   const roomName = extractRoomName(roomUrl);
   const tokenExp = Math.floor(Date.now() / 1000) + 4 * 60 * 60;
 
@@ -46,6 +50,7 @@ async function buildJoinUrl(roomUrl: string, dailyKey: string): Promise<string> 
       properties: {
         room_name: roomName,
         exp: tokenExp,
+        is_owner: isOwner,
       },
     },
     { headers: { Authorization: `Bearer ${dailyKey}`, 'Content-Type': 'application/json' } },
@@ -99,6 +104,30 @@ export const createDailyRoom = onCall(
       throw new HttpsError('not-found', 'Réservation introuvable');
     }
     const booking = bookingSnap.data()!;
+    const bookingSessionType = booking['sessionType'] as 'one_on_one' | 'group' | undefined;
+    const inferredSessionType: 'one_on_one' | 'group' =
+      bookingSessionType ?? (booking['slotId'] || booking['groupSlotId'] ? 'group' : 'one_on_one');
+
+    let groupSlot: {
+      maxParticipants?: number;
+      enrolledStudentIds?: string[];
+    } | null = null;
+
+    if (inferredSessionType === 'group') {
+      const slotId = (booking['slotId'] || booking['groupSlotId']) as string | undefined;
+      if (!slotId) {
+        throw new HttpsError('failed-precondition', 'Booking de groupe invalide: slotId manquant');
+      }
+      const slotSnap = await db().collection('group_session_slots').doc(slotId).get();
+      if (!slotSnap.exists) {
+        throw new HttpsError('not-found', 'Créneau de groupe introuvable');
+      }
+      groupSlot = slotSnap.data() as {
+        maxParticipants?: number;
+        enrolledStudentIds?: string[];
+      };
+    }
+
     const isBookingTutor = booking['tutorId'] === request.auth.uid;
     const isBookingStudent = booking['studentId'] === request.auth.uid;
 
@@ -152,11 +181,25 @@ export const createDailyRoom = onCall(
         bookingId,
         sessionId: sessionSnap.docs[0].id,
       });
-      const joinUrl = await buildJoinUrl(existingRoomUrl, dailyKey);
+      const joinUrl = await buildJoinUrlForRole(existingRoomUrl, dailyKey, isTutorSide);
+
+      let participantTokens: Record<string, string> = {};
+      if (inferredSessionType === 'group' && isTutorSide && groupSlot) {
+        const enrolledIds = (groupSlot.enrolledStudentIds ?? []).filter((id) => typeof id === 'string');
+        participantTokens = Object.fromEntries(
+          await Promise.all(
+            enrolledIds.map(async (studentId) => {
+              const tokenUrl = await buildJoinUrlForRole(existingRoomUrl, dailyKey, false);
+              return [studentId, tokenUrl] as const;
+            }),
+          ),
+        );
+      }
 
       return {
         roomUrl: joinUrl,
         sessionId: sessionSnap.docs[0].id,
+        ...(inferredSessionType === 'group' ? { participantTokens } : {}),
       };
     }
 
@@ -197,7 +240,18 @@ export const createDailyRoom = onCall(
           {
             name:       roomName,
             privacy:    'private',
-            properties: { enable_chat: true, enable_screenshare: true },
+            properties: {
+              enable_chat: true,
+              enable_screenshare: true,
+              ...(inferredSessionType === 'group'
+                ? {
+                  max_participants: (groupSlot?.maxParticipants ?? 20) + 1,
+                  enable_knocking: true,
+                  start_audio_off: true,
+                  enable_recording: 'cloud',
+                }
+                : {}),
+            },
           },
           { headers: { Authorization: `Bearer ${dailyKey}`, 'Content-Type': 'application/json' } },
         );
@@ -215,6 +269,13 @@ export const createDailyRoom = onCall(
             enable_chat:        true,
             enable_screenshare: true,
             enable_recording:   'cloud',
+            ...(inferredSessionType === 'group'
+              ? {
+                max_participants: (groupSlot?.maxParticipants ?? 20) + 1,
+                enable_knocking: true,
+                start_audio_off: true,
+              }
+              : {}),
           },
         },
         { headers: { Authorization: `Bearer ${dailyKey}`, 'Content-Type': 'application/json' } },
@@ -223,7 +284,20 @@ export const createDailyRoom = onCall(
       logger.info('createDailyRoom: created ephemeral room', { bookingId });
     }
 
-    const joinUrl = await buildJoinUrl(roomUrl, dailyKey);
+    const joinUrl = await buildJoinUrlForRole(roomUrl, dailyKey, true);
+
+    let participantTokens: Record<string, string> = {};
+    if (inferredSessionType === 'group' && groupSlot) {
+      const enrolledIds = (groupSlot.enrolledStudentIds ?? []).filter((id) => typeof id === 'string');
+      participantTokens = Object.fromEntries(
+        await Promise.all(
+          enrolledIds.map(async (studentId) => {
+            const tokenUrl = await buildJoinUrlForRole(roomUrl, dailyKey, false);
+            return [studentId, tokenUrl] as const;
+          }),
+        ),
+      );
+    }
 
     // ── Create or update session document ───────────────────────────────────
     const sessionRef = sessionSnap.empty
@@ -255,6 +329,10 @@ export const createDailyRoom = onCall(
       sessionId: sessionRef.id, roomUrl, roomMode,
     });
 
-    return { roomUrl: joinUrl, sessionId: sessionRef.id };
+    return {
+      roomUrl: joinUrl,
+      sessionId: sessionRef.id,
+      ...(inferredSessionType === 'group' ? { participantTokens } : {}),
+    };
   },
 );

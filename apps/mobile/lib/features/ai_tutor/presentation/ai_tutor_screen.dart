@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
+import '../domain/chat_models.dart';
 import 'ai_tutor_providers.dart';
+import 'widgets/chat_bubble.dart';
 
 class AiTutorScreen extends ConsumerStatefulWidget {
   const AiTutorScreen({super.key});
@@ -15,21 +18,22 @@ class AiTutorScreen extends ConsumerStatefulWidget {
 class _AiTutorScreenState extends ConsumerState<AiTutorScreen> {
   final _scrollCtrl  = ScrollController();
   final _inputCtrl   = TextEditingController();
+  int _lastRenderSignature = 0;
+
+  void _scrollToBottom() {
+    if (!_scrollCtrl.hasClients) return;
+    _scrollCtrl.animateTo(
+      _scrollCtrl.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
 
   void _sendMessage() {
     final text = _inputCtrl.text.trim();
     if (text.isEmpty) return;
     _inputCtrl.clear();
     ref.read(aiChatProvider.notifier).sendMessage(text);
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (_scrollCtrl.hasClients) {
-        _scrollCtrl.animateTo(
-          _scrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
-      }
-    });
   }
 
   @override
@@ -48,6 +52,17 @@ class _AiTutorScreenState extends ConsumerState<AiTutorScreen> {
       (messages.isEmpty ||
         messages.last.role != 'assistant' ||
         messages.last.content.isEmpty);
+
+    final signature = Object.hash(
+      messages.length,
+      messages.isNotEmpty ? messages.last.content : '',
+      messages.isNotEmpty ? messages.last.images.length : 0,
+      showTypingIndicator,
+    );
+    if (_lastRenderSignature != signature) {
+      _lastRenderSignature = signature;
+      SchedulerBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -74,8 +89,10 @@ class _AiTutorScreenState extends ConsumerState<AiTutorScreen> {
                     padding: AppSpacing.pagePadding,
                     itemCount: messages.length + (showTypingIndicator ? 1 : 0),
                     itemBuilder: (context, i) {
-                      if (i == messages.length) return const _TypingIndicator();
-                      return _MessageBubble(message: messages[i]);
+                      if (i == messages.length) {
+                        return const ChatBubble(message: ChatMessage(role: 'assistant', content: ''));
+                      }
+                      return ChatBubble(message: messages[i]);
                     },
                   ),
           ),
@@ -106,58 +123,6 @@ class _WelcomeState extends StatelessWidget {
         Text('Bonjour ! Je suis votre tuteur IA.', style: Theme.of(context).textTheme.titleMedium, textAlign: TextAlign.center),
         AppSpacing.gapSm,
         Text('Posez-moi n\'importe quelle question sur vos cours !', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.grey600), textAlign: TextAlign.center),
-      ]),
-    ),
-  );
-}
-
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
-  final ChatMessage message;
-
-  @override
-  Widget build(BuildContext context) {
-    final isUser = message.role == 'user';
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        decoration: BoxDecoration(
-          color: isUser ? AppColors.primary : AppColors.grey100,
-          borderRadius: BorderRadius.only(
-            topLeft:     const Radius.circular(AppSpacing.radiusMd),
-            topRight:    const Radius.circular(AppSpacing.radiusMd),
-            bottomLeft:  Radius.circular(isUser ? AppSpacing.radiusMd : 0),
-            bottomRight: Radius.circular(isUser ? 0 : AppSpacing.radiusMd),
-          ),
-        ),
-        child: Text(
-          message.content,
-          style: TextStyle(color: isUser ? Colors.white : AppColors.grey900),
-        ),
-      ),
-    );
-  }
-}
-
-class _TypingIndicator extends StatelessWidget {
-  const _TypingIndicator();
-  @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.centerLeft,
-    child: Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.grey100,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      ),
-      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-        SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 2)),
-        SizedBox(width: 8),
-        Text('Suklu réfléchit...', style: TextStyle(color: AppColors.grey600, fontSize: 13)),
       ]),
     ),
   );

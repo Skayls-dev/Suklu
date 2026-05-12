@@ -8,6 +8,7 @@ import '../../../core/constants/app_spacing.dart';
 import '../../../core/mixins/offline_guard_mixin.dart';
 import '../../../core/providers/firebase_providers.dart';
 import '../domain/booking_model.dart';
+import 'booking_providers.dart';
 
 // ── Provider: load a single booking by ID ────────────────────────────────────
 final bookingByIdProvider = FutureProvider.autoDispose.family<BookingModel?, String>((ref, id) async {
@@ -89,6 +90,7 @@ class _DetailView extends ConsumerStatefulWidget {
 class _DetailViewState extends ConsumerState<_DetailView>
   with OfflineGuardMixin<_DetailView> {
   BookingModel get booking => widget.booking;
+  bool _isSimulatingPayment = false;
 
   Color _statusColor() => switch (booking.status) {
     BookingStatus.confirmed => Colors.green,
@@ -192,9 +194,7 @@ class _DetailViewState extends ConsumerState<_DetailView>
                 icon: Icons.payment_outlined,
                 label: 'Payer maintenant',
                 color: Colors.green.shade700,
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Paiement — disponible prochainement')),
-                ),
+                onPressed: _isSimulatingPayment ? null : () => _simulatePayment(context),
               ),
 
             if (booking.status == BookingStatus.confirmed)
@@ -260,6 +260,39 @@ class _DetailViewState extends ConsumerState<_DetailView>
           ],
         ),
       );
+    });
+  }
+
+  Future<void> _simulatePayment(BuildContext context) async {
+    await guardOnline(context, () async {
+      if (_isSimulatingPayment) return;
+      setState(() => _isSimulatingPayment = true);
+      try {
+        final fn = ref.read(firebaseFunctionsProvider);
+        await fn.httpsCallable('simulatePayment').call({
+          'bookingId': booking.id,
+        });
+
+        ref.invalidate(bookingByIdProvider(booking.id));
+        ref.invalidate(userBookingsProvider);
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Paiement simulé validé. Réservation confirmée.')),
+        );
+
+        final role = ref.read(authStateNotifierProvider).value?.role.toFirestoreString();
+        if (role == 'student') {
+          context.push('/student/session/${booking.id}');
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Simulation de paiement échouée: $e')),
+        );
+      } finally {
+        if (mounted) setState(() => _isSimulatingPayment = false);
+      }
     });
   }
 }

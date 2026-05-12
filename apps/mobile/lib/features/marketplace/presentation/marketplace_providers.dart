@@ -70,3 +70,17 @@ final tutorProfileProvider =
     FutureProvider.autoDispose.family<TutorProfileModel?, String>((ref, tutorId) {
   return ref.watch(marketplaceRepositoryProvider).fetchTutorProfile(tutorId);
 });
+
+final tutorReviewsProvider = FutureProvider.autoDispose.family<List<Map<String, dynamic>>, String>((ref, tutorId) async {
+  final fs = ref.watch(firestoreProvider);
+  final snap = await fs
+      .collection('reviews')
+      .where('targetId', isEqualTo: tutorId)
+      .where('targetRole', isEqualTo: 'tutor')
+      .where('isVisible', isEqualTo: true)
+      .orderBy('createdAt', descending: true)
+      .limit(10)
+      .get();
+
+  return snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+});

@@ -271,6 +271,15 @@
         { "fieldPath": "hourlyRate",   "order": "ASCENDING" },
         { "fieldPath": "rating",       "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "reviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "targetId",    "order": "ASCENDING" },
+        { "fieldPath": "targetRole",  "order": "ASCENDING" },
+        { "fieldPath": "createdAt",   "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

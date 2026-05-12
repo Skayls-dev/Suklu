@@ -15,7 +15,7 @@ import json
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.llm.llm_client import BaseLLMClient, get_llm_client
 from app.logging_service import log_ai_response
@@ -43,10 +43,17 @@ class ChatRequest(BaseModel):
     country:              str = "Sénégal"
     conversation_history: list[Message] = []
     session_id:           str = ""
+    include_images:       bool = True
+
+
+class ImageReference(BaseModel):
+    url:     str
+    caption: str
 
 
 class ChatResponse(BaseModel):
-    reply: str
+    reply:  str
+    images: list[ImageReference] = Field(default_factory=list)
 
 
 def _sse_event(event: str, payload: dict) -> str:
@@ -57,9 +64,10 @@ async def _prepare_chat_context(
     body: ChatRequest,
     llm: BaseLLMClient,
     qdrant: QdrantService,
-) -> tuple[str, bool, int]:
+) -> tuple[str, bool, int, list[dict[str, str]]]:
     rag_chunks_count = 0
     rag_unavailable = False
+    image_refs: list[dict[str, str]] = []
 
     try:
         query_vector = await llm.embed(body.message)
@@ -69,9 +77,19 @@ async def _prepare_chat_context(
             filter_payload={"subject": body.subject, "grade_level": body.grade_level},
         )
         rag_chunks_count = len(chunks)
+
+        text_chunks = [c for c in chunks if c["payload"].get("chunk_type") != "image"]
+        image_chunks = [] if not body.include_images else [c for c in chunks if c["payload"].get("chunk_type") == "image"]
+
         rag_context = "\n\n---\n\n".join(
-            c["payload"].get("text", "") for c in chunks
+            c["payload"].get("text", "") for c in text_chunks
         ) or "Aucun extrait disponible pour ce sujet."
+
+        for ic in image_chunks:
+            url = ic["payload"].get("image_url", "")
+            caption = ic["payload"].get("text", "")
+            if url:
+                image_refs.append({"url": url, "caption": caption})
     except Exception as exc:
         log.warning("chat.rag_failed", error=str(exc))
         rag_unavailable = True
@@ -79,6 +97,12 @@ async def _prepare_chat_context(
             "Base de connaissance temporairement inaccessible. "
             "Ne pretends pas t'appuyer sur des extraits du programme dans cette reponse."
         )
+        image_refs = []
+
+    rag_images_section = ""
+    if image_refs:
+        lines = [f'[IMAGE:{ref["url"]}] {ref["caption"]}' for ref in image_refs]
+        rag_images_section = "\n\nSchémas et figures pertinents :\n" + "\n".join(lines)
 
     history_text = "\n".join(
         f"{m.role.capitalize()}: {m.content}"
@@ -90,10 +114,11 @@ async def _prepare_chat_context(
         grade_level=body.grade_level,
         country=body.country,
         rag_context=rag_context,
+        rag_images_section=rag_images_section,
         conversation_history=history_text,
         user_message=body.message,
     )
-    return system_prompt, rag_unavailable, rag_chunks_count
+    return system_prompt, rag_unavailable, rag_chunks_count, image_refs
 
 
 @router.post("", response_model=ChatResponse)
@@ -104,7 +129,7 @@ async def chat(
     qdrant:  Annotated[QdrantService, Depends(get_qdrant_service)],
 ) -> ChatResponse:
     user_id = request.state.user.get("uid", "anonymous")
-    system_prompt, rag_unavailable, rag_chunks_count = await _prepare_chat_context(
+    system_prompt, rag_unavailable, rag_chunks_count, image_refs = await _prepare_chat_context(
         body=body,
         llm=llm,
         qdrant=qdrant,
@@ -137,7 +162,7 @@ async def chat(
         },
     )
 
-    return ChatResponse(reply=reply)
+    return ChatResponse(reply=reply, images=[ImageReference(**ref) for ref in image_refs])
 
 
 @router.post("/stream")
@@ -148,7 +173,7 @@ async def chat_stream(
     qdrant: Annotated[QdrantService, Depends(get_qdrant_service)],
 ) -> StreamingResponse:
     user_id = request.state.user.get("uid", "anonymous")
-    system_prompt, rag_unavailable, rag_chunks_count = await _prepare_chat_context(
+    system_prompt, rag_unavailable, rag_chunks_count, image_refs = await _prepare_chat_context(
         body=body,
         llm=llm,
         qdrant=qdrant,
@@ -161,6 +186,9 @@ async def chat_stream(
         usage_completion_tokens = 0
 
         try:
+            if image_refs:
+                yield _sse_event("images", {"images": image_refs})
+
             if rag_unavailable:
                 prefix = f"{_RAG_UNAVAILABLE_NOTICE}\n\n"
                 full_reply += prefix

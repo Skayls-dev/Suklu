@@ -13,6 +13,8 @@ class SessionModel {
     required this.scheduledAt,
     required this.durationMinutes,
     required this.status,
+    this.aiSummary,
+    this.aiSummaryGeneratedAt,
   });
 
   final String id;
@@ -24,6 +26,8 @@ class SessionModel {
   final DateTime scheduledAt;
   final int durationMinutes;
   final SessionStatus status;
+  final Map<String, dynamic>? aiSummary;
+  final DateTime? aiSummaryGeneratedAt;
 
   factory SessionModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
@@ -45,6 +49,10 @@ class SessionModel {
         'completed' => SessionStatus.completed,
         _ => SessionStatus.scheduled,
       },
+      aiSummary: data['aiSummary'] is Map<String, dynamic>
+          ? (data['aiSummary'] as Map<String, dynamic>)
+          : null,
+      aiSummaryGeneratedAt: (data['aiSummaryGeneratedAt'] as Timestamp?)?.toDate(),
     );
   }
 

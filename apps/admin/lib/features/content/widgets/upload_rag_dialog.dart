@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -31,11 +30,11 @@ class _UploadRagDialogState extends State<UploadRagDialog> {
   String? _subject;
   String? _gradeLevel;
   String? _country;
+  final _captionCtrl = TextEditingController();
 
   String? _fileName;
   Uint8List? _fileBytes;
   bool _uploading = false;
-  double _progress = 0;
 
   static const _gradeLevels = ['CP', 'CE1', 'CE2', 'CM1', 'CM2', '6e', '5e', '4e', '3e', '2nde', '1ere', 'Terminale'];
   static const _countries = ['SN', 'CI', 'CM', 'GN'];
@@ -44,7 +43,7 @@ class _UploadRagDialogState extends State<UploadRagDialog> {
     final result = await FilePicker.platform.pickFiles(
       withData: true,
       type: FileType.custom,
-      allowedExtensions: const ['pdf', 'docx'],
+      allowedExtensions: const ['pdf', 'docx', 'png', 'jpg', 'jpeg', 'webp'],
     );
     if (result == null || result.files.isEmpty) return;
 
@@ -63,42 +62,44 @@ class _UploadRagDialogState extends State<UploadRagDialog> {
 
     setState(() {
       _uploading = true;
-      _progress = 0;
     });
 
     try {
-      final storagePath = 'rag_uploads/${_subject!}/${_gradeLevel!}/$_fileName';
-      final ref = FirebaseStorage.instance.ref(storagePath);
-      final task = ref.putData(_fileBytes!);
-
-      task.snapshotEvents.listen((e) {
-        if (!mounted) return;
-        final ratio = e.totalBytes == 0 ? 0.0 : e.bytesTransferred / e.totalBytes;
-        setState(() => _progress = ratio.clamp(0, 1));
-      });
-
-      await task.whenComplete(() {});
-
       final token = await FirebaseAuth.instance.currentUser!.getIdToken();
-      final response = await http.post(
-        Uri.parse('$aiGatewayUrl/ingest'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'storage_path': storagePath,
-          'subject': _subject,
-          'grade_level': _gradeLevel,
-          'country': _country,
-        }),
+      final request = http.MultipartRequest('POST', Uri.parse('$aiGatewayUrl/ingest'))
+        ..headers['Authorization'] = 'Bearer $token'
+        ..fields['subject'] = _subject!
+        ..fields['grade_level'] = _gradeLevel!
+        ..fields['country'] = _country!
+        ..fields['caption'] = _captionCtrl.text.trim();
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          _fileBytes!,
+          filename: _fileName!,
+        ),
       );
+
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
 
       if (!mounted) return;
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        var successMessage = 'Ingestion lancée avec succès.';
+        try {
+          final body = jsonDecode(response.body) as Map<String, dynamic>;
+          final chunks = body['chunksIngested'];
+          if (chunks != null) {
+            successMessage = 'Ingestion réussie ($chunks chunks).';
+          }
+        } catch (_) {
+          // Keep default success message when body is not JSON.
+        }
+
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ingestion lancée avec succès.')),
+          SnackBar(content: Text(successMessage)),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -118,10 +119,15 @@ class _UploadRagDialogState extends State<UploadRagDialog> {
       if (mounted) {
         setState(() {
           _uploading = false;
-          _progress = 0;
         });
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _captionCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -167,11 +173,21 @@ class _UploadRagDialogState extends State<UploadRagDialog> {
               OutlinedButton.icon(
                 onPressed: _uploading ? null : _selectFile,
                 icon: const Icon(Icons.upload_file),
-                label: Text(_fileName == null ? 'Sélectionner un fichier PDF/DOCX' : _fileName!),
+                label: Text(_fileName == null ? 'Sélectionner un fichier PDF/DOCX/IMAGE' : _fileName!),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _captionCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Description de l\'image (optionnel)',
+                  hintText: 'Utilisée si vous importez une image sans PDF',
+                ),
+                minLines: 2,
+                maxLines: 3,
               ),
               if (_uploading) ...[
                 const SizedBox(height: 12),
-                LinearProgressIndicator(value: _progress),
+                const LinearProgressIndicator(),
               ],
             ],
           ),
