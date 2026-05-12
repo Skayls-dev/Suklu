@@ -71,6 +71,12 @@ class StudentDashboard extends ConsumerWidget {
                   color: AppColors.info,
                   onTap: () => context.go('/student/booking'),
                 ),
+                _QuickAction(
+                  icon: Icons.person_outline,
+                  label: 'Mon profil',
+                  color: AppColors.tutorAccent,
+                  onTap: () => context.push('/student/profile/edit'),
+                ),
               ],
             ),
             AppSpacing.gapLg,

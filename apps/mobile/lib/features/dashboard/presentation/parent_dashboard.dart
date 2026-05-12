@@ -63,7 +63,7 @@ class ParentDashboard extends ConsumerWidget {
                 _QuickAction(icon: Icons.calendar_today_outlined, label: 'Réserver un cours', color: AppColors.primary,        onTap: () => context.go('/parent/booking')),
                 _QuickAction(icon: Icons.bar_chart_outlined,     label: 'Progrès',           color: AppColors.success,        onTap: () => context.go('/parent/progress')),
                 _QuickAction(icon: Icons.receipt_long_outlined,  label: 'Paiements',         color: AppColors.parentAccent,   onTap: () => context.go('/parent/payment')),
-                _QuickAction(icon: Icons.support_agent_outlined, label: 'Assistance',        color: AppColors.info,           onTap: () {}),
+                _QuickAction(icon: Icons.person_outline,         label: 'Mon profil',        color: AppColors.tutorAccent,    onTap: () => context.push('/parent/profile/edit')),
               ],
             ),
           ],

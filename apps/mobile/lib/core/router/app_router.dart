@@ -32,6 +32,8 @@ import '../../features/sessions/presentation/create_group_slot_screen.dart';
 import '../../features/sessions/presentation/session_summary_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/tutor_profile/presentation/tutor_profile_edit_screen.dart';
+import '../../features/student_profile/presentation/student_profile_edit_screen.dart';
+import '../../features/parent_profile/presentation/parent_profile_edit_screen.dart';
 import '../widgets/offline_banner.dart';
 import 'route_guards.dart';
 
@@ -109,6 +111,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, s) => SessionSummaryScreen(sessionId: s.pathParameters['sessionId']!),
           ),
           GoRoute(path: '/student/ai-tutor',  builder: (_, __) => const AiTutorScreen()),
+          GoRoute(path: '/student/profile/edit', builder: (_, __) => const StudentProfileEditScreen()),
           GoRoute(path: '/student/progress',  builder: (_, __) => const ProgressScreen()),
           GoRoute(path: '/student/my-reviews', builder: (_, __) => const MyReviewsScreen()),
           GoRoute(path: '/student/payment',   builder: (_, __) => const PaymentScreen()),
@@ -156,6 +159,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(path: '/parent/payment',   builder: (_, __) => const PaymentScreen()),
+          GoRoute(path: '/parent/profile/edit', builder: (_, __) => const ParentProfileEditScreen()),
           GoRoute(path: '/parent/progress',  builder: (_, __) => const ParentAnalyticsScreen()),
           GoRoute(
             path: '/parent/session-summary/:sessionId',
