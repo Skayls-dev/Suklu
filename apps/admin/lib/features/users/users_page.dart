@@ -36,36 +36,39 @@ class UsersPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 1100;
     final role = ref.watch(adminRoleProvider).valueOrNull;
     final roleFilter = ref.watch(_userRoleFilterProvider);
     final search = ref.watch(_userSearchProvider).toLowerCase().trim();
     final usersAsync = ref.watch(_usersProvider(roleFilter));
 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isCompact ? 12 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'all', label: Text('Tous')),
-                    ButtonSegment(value: 'student', label: Text('Étudiant')),
-                    ButtonSegment(value: 'parent', label: Text('Parent')),
-                    ButtonSegment(value: 'tutor', label: Text('Tuteur')),
-                    ButtonSegment(value: 'academic_staff', label: Text('Staff')),
-                    ButtonSegment(value: 'super_admin', label: Text('Admin')),
-                  ],
-                  selected: {roleFilter},
-                  onSelectionChanged: (v) => ref.read(_userRoleFilterProvider.notifier).state = v.first,
+          if (isCompact)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'all', label: Text('Tous')),
+                      ButtonSegment(value: 'student', label: Text('Étudiant')),
+                      ButtonSegment(value: 'parent', label: Text('Parent')),
+                      ButtonSegment(value: 'tutor', label: Text('Tuteur')),
+                      ButtonSegment(value: 'academic_staff', label: Text('Staff')),
+                      ButtonSegment(value: 'super_admin', label: Text('Admin')),
+                    ],
+                    selected: {roleFilter},
+                    onSelectionChanged: (v) => ref.read(_userRoleFilterProvider.notifier).state = v.first,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 280,
-                child: TextField(
+                const SizedBox(height: 12),
+                TextField(
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search),
                     hintText: 'Nom ou email',
@@ -73,23 +76,71 @@ class UsersPage extends ConsumerWidget {
                   ),
                   onChanged: (v) => ref.read(_userSearchProvider.notifier).state = v,
                 ),
-              ),
-              const SizedBox(width: 12),
-              if (role == 'super_admin')
-                FilledButton.icon(
-                  onPressed: () {
-                    final list = usersAsync.valueOrNull ?? const <Map<String, dynamic>>[];
-                    _exportCsv(list.where((u) {
-                      final name = (u['displayName'] ?? '').toString().toLowerCase();
-                      final email = (u['email'] ?? '').toString().toLowerCase();
-                      return search.isEmpty || name.contains(search) || email.contains(search);
-                    }).toList());
-                  },
-                  icon: const Icon(Icons.download),
-                  label: const Text('Exporter CSV'),
+                if (role == 'super_admin') ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        final list = usersAsync.valueOrNull ?? const <Map<String, dynamic>>[];
+                        _exportCsv(list.where((u) {
+                          final name = (u['displayName'] ?? '').toString().toLowerCase();
+                          final email = (u['email'] ?? '').toString().toLowerCase();
+                          return search.isEmpty || name.contains(search) || email.contains(search);
+                        }).toList());
+                      },
+                      icon: const Icon(Icons.download),
+                      label: const Text('Exporter CSV'),
+                    ),
+                  ),
+                ],
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'all', label: Text('Tous')),
+                      ButtonSegment(value: 'student', label: Text('Étudiant')),
+                      ButtonSegment(value: 'parent', label: Text('Parent')),
+                      ButtonSegment(value: 'tutor', label: Text('Tuteur')),
+                      ButtonSegment(value: 'academic_staff', label: Text('Staff')),
+                      ButtonSegment(value: 'super_admin', label: Text('Admin')),
+                    ],
+                    selected: {roleFilter},
+                    onSelectionChanged: (v) => ref.read(_userRoleFilterProvider.notifier).state = v.first,
+                  ),
                 ),
-            ],
-          ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 280,
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Nom ou email',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => ref.read(_userSearchProvider.notifier).state = v,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                if (role == 'super_admin')
+                  FilledButton.icon(
+                    onPressed: () {
+                      final list = usersAsync.valueOrNull ?? const <Map<String, dynamic>>[];
+                      _exportCsv(list.where((u) {
+                        final name = (u['displayName'] ?? '').toString().toLowerCase();
+                        final email = (u['email'] ?? '').toString().toLowerCase();
+                        return search.isEmpty || name.contains(search) || email.contains(search);
+                      }).toList());
+                    },
+                    icon: const Icon(Icons.download),
+                    label: const Text('Exporter CSV'),
+                  ),
+              ],
+            ),
           const SizedBox(height: 16),
           Expanded(
             child: usersAsync.when(
@@ -242,7 +293,7 @@ class UsersPage extends ConsumerWidget {
   }
 
   Future<void> _exportCsv(List<Map<String, dynamic>> users) async {
-    final header = 'uid,email,displayName,role,isActive,country,createdAt';
+    const header = 'uid,email,displayName,role,isActive,country,createdAt';
     final lines = users.map((u) {
       final values = [
         (u['uid'] ?? u['id']).toString(),

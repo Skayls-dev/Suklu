@@ -112,7 +112,9 @@ class _AdminShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).matchedLocation;
     final idx      = _destinations.indexWhere((d) => d.path == location).clamp(0, _destinations.length - 1);
-    final extended = MediaQuery.of(context).size.width > 800;
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 900;
+    final extended = width > 1100;
 
     return Scaffold(
       appBar: AppBar(
@@ -127,21 +129,44 @@ class _AdminShell extends ConsumerWidget {
           ),
         ],
       ),
-      body: Row(
-        children: [
-          NavigationRail(
-            extended: extended,
-            selectedIndex: idx,
-            onDestinationSelected: (i) => context.go(_destinations[i].path),
-            destinations: _destinations.map((d) => NavigationRailDestination(
-              icon:  Icon(d.icon),
-              label: Text(d.label),
-            )).toList(),
-          ),
-          const VerticalDivider(thickness: 1, width: 1),
-          Expanded(child: child),
-        ],
-      ),
+      body: isCompact
+          ? SafeArea(
+              top: false,
+              child: child,
+            )
+          : Row(
+              children: [
+                NavigationRail(
+                  extended: extended,
+                  selectedIndex: idx,
+                  onDestinationSelected: (i) => context.go(_destinations[i].path),
+                  destinations: _destinations
+                      .map(
+                        (d) => NavigationRailDestination(
+                          icon: Icon(d.icon),
+                          label: Text(d.label),
+                        ),
+                      )
+                      .toList(),
+                ),
+                const VerticalDivider(thickness: 1, width: 1),
+                Expanded(child: child),
+              ],
+            ),
+      bottomNavigationBar: isCompact
+          ? NavigationBar(
+              selectedIndex: idx,
+              onDestinationSelected: (i) => context.go(_destinations[i].path),
+              destinations: _destinations
+                  .map(
+                    (d) => NavigationDestination(
+                      icon: Icon(d.icon),
+                      label: d.label,
+                    ),
+                  )
+                  .toList(),
+            )
+          : null,
     );
   }
 }

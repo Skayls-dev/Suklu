@@ -17,6 +17,8 @@ class AdminDataTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final isCompact = width < 1100;
     final hasColumns = columns.isNotEmpty;
     final safeRows = hasColumns
         ? rows.where((row) => row.cells.length == columns.length).toList()
@@ -74,13 +76,18 @@ class AdminDataTable extends StatelessWidget {
       children: [
         if (isLoading) const LinearProgressIndicator(minHeight: 2),
         Expanded(
-          child: DataTable2(
-            fixedLeftColumns: hasColumns ? 1 : 0,
-            columns: columns,
-            rows: safeRows,
-            headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-            columnSpacing: 12,
-            horizontalMargin: 12,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return DataTable2(
+                fixedLeftColumns: isCompact ? 0 : (hasColumns ? 1 : 0),
+                minWidth: constraints.maxWidth < 980 ? 980 : constraints.maxWidth,
+                columns: columns,
+                rows: safeRows,
+                headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                columnSpacing: isCompact ? 10 : 12,
+                horizontalMargin: isCompact ? 8 : 12,
+              );
+            },
           ),
         ),
       ],
