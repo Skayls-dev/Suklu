@@ -152,6 +152,7 @@ class _LinkRequestScreenState extends ConsumerState<LinkRequestScreen> {
               AppSpacing.gapMd,
 
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 value: _relationship,
                 decoration: const InputDecoration(
                   labelText: 'Lien de parenté',

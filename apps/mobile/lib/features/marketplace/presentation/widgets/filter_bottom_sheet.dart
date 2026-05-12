@@ -54,6 +54,7 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
               loading: () => const LinearProgressIndicator(),
               error: (e, _) => Text('Erreur matières: $e'),
               data: (subjects) => DropdownButtonFormField<String>(
+                isExpanded: true,
                 value: _selectedSubjectId ?? '',
                 decoration: const InputDecoration(labelText: 'Matière'),
                 items: [
@@ -74,6 +75,7 @@ class _FilterBottomSheetState extends ConsumerState<FilterBottomSheet> {
             ),
             AppSpacing.gapMd,
             DropdownButtonFormField<String>(
+              isExpanded: true,
               value: _selectedGradeLevel ?? '',
               decoration: const InputDecoration(labelText: 'Niveau'),
               items: const [

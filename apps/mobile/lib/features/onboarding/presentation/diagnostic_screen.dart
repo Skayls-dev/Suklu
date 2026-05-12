@@ -231,6 +231,7 @@ class _DiagnosticScreenState extends ConsumerState<DiagnosticScreen> {
           ),
           AppSpacing.gapXl,
           DropdownButtonFormField<String>(
+            isExpanded: true,
             value: selectedSubject,
             decoration: const InputDecoration(labelText: 'Matiere principale'),
             items: subjects
@@ -246,6 +247,7 @@ class _DiagnosticScreenState extends ConsumerState<DiagnosticScreen> {
           ),
           AppSpacing.gapMd,
           DropdownButtonFormField<String>(
+            isExpanded: true,
             value: selectedGrade,
             decoration: const InputDecoration(labelText: 'Classe'),
             items: _grades
