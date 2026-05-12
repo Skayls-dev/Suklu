@@ -51,6 +51,12 @@ class TutorDashboard extends ConsumerWidget {
               onTap:   () => context.go('/tutor/ai-tutor'),
             ),
             _ActionTile(
+              icon:    Icons.edit_outlined,
+              title:   'Modifier mon profil tuteur',
+              color:   AppColors.info,
+              onTap:   () => context.push('/tutor/profile/edit'),
+            ),
+            _ActionTile(
               icon:    Icons.schedule_outlined,
               title:   'Gérer mon agenda',
               color:   AppColors.primary,

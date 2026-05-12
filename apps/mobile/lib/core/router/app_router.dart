@@ -31,6 +31,7 @@ import '../../features/sessions/presentation/session_screen.dart';
 import '../../features/sessions/presentation/create_group_slot_screen.dart';
 import '../../features/sessions/presentation/session_summary_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/tutor_profile/presentation/tutor_profile_edit_screen.dart';
 import '../widgets/offline_banner.dart';
 import 'route_guards.dart';
 
@@ -129,6 +130,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(path: '/tutor/ai-tutor', builder: (_, __) => const AiTutorScreen()),
+          GoRoute(path: '/tutor/profile/edit', builder: (_, __) => const TutorProfileEditScreen()),
           GoRoute(
             path: '/tutor/session/:bookingId',
             builder: (_, s) => SessionScreen(bookingId: s.pathParameters['bookingId']!),
