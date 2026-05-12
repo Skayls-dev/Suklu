@@ -2,10 +2,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/providers/auth_provider.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_spacing.dart';
 import '../../../core/providers/data_saver_provider.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_spacing.dart';
+import '../../auth/domain/user_role.dart';
+import '../../auth/presentation/auth_providers.dart';
 
 /// Profile management screen for viewing and editing user profile
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -43,16 +44,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
 
     final roleLabel = switch (user.role) {
-      'student' => '👨‍🎓 Étudiant',
-      'tutor' => '👨‍🏫 Tuteur',
-      'parent' => '👨‍👩‍👧 Parent',
-      _ => '❓ ${user.role}',
+      UserRole.student => '👨‍🎓 Étudiant',
+      UserRole.tutor => '👨‍🏫 Tuteur',
+      UserRole.parent => '👨‍👩‍👧 Parent',
+      _ => '❓ ${user.role.label}',
     };
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mon profil'),
-        backgroundColor: const Color(0xFF1A6B4A),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -61,7 +62,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             // Profile header card
             Container(
               decoration: const BoxDecoration(
-                color: Color(0xFF1A6B4A),
+                color: AppColors.primary,
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(24),
                   bottomRight: Radius.circular(24),
@@ -74,17 +75,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     radius: 48,
                     backgroundColor: Colors.white.withAlpha(230),
                     child: Text(
-                      (user.displayName ?? '?').substring(0, 1).toUpperCase(),
+                      user.displayName.substring(0, 1).toUpperCase(),
                       style: const TextStyle(
                         fontSize: 48,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A6B4A),
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    user.displayName ?? 'Utilisateur',
+                    user.displayName,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -114,7 +115,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A6B4A),
+                        color: AppColors.primary,
                       ),
                     ),
                   ),
