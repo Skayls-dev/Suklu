@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_spacing.dart';
@@ -18,6 +20,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   late TextEditingController _nameCtrl;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
@@ -71,16 +74,59 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
               child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundColor: Colors.white.withAlpha(230),
-                    child: Text(
-                      user.displayName.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
+                  GestureDetector(
+                    onTap: _pickPhoto,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 48,
+                          backgroundColor: Colors.white.withAlpha(230),
+                          backgroundImage: user.photoUrl != null
+                              ? CachedNetworkImageProvider(user.photoUrl!)
+                              : null,
+                          child: user.photoUrl == null
+                              ? Text(
+                                  user.displayName.substring(0, 1).toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 48,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(40),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: _uploadingPhoto
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.primary,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.camera_alt,
+                                    size: 16,
+                                    color: AppColors.primary,
+                                  ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -274,6 +320,78 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // Data saver provider handles persistence automatically
     // Just trigger the state update
     ref.read(dataSaverProvider.notifier).state = value;
+  }
+
+  Future<void> _pickPhoto() async {
+    // Show source selection sheet
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choisir depuis la galerie'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Annuler'),
+              onTap: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(
+      source: source,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+
+    if (picked == null) return;
+
+    final bytes = await picked.readAsBytes();
+    final ext = picked.path.split('.').last.toLowerCase();
+    final safeExt = (ext == 'jpg' || ext == 'jpeg' || ext == 'png' || ext == 'webp')
+        ? ext
+        : 'jpg';
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      await ref.read(authStateNotifierProvider.notifier).uploadProfilePhoto(
+        imageBytes: bytes,
+        extension: safeExt,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Photo de profil mise à jour'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
   }
 
   Future<void> _signOut() async {

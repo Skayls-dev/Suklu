@@ -55,6 +55,9 @@ dependencies:
   # Uncomment once you have a Daily.co account:
   # daily_flutter: ^0.7.0
 
+  # ── Media picker ──────────────────────────────────────────────────────────
+  image_picker:         ^1.1.2
+
   # ── Utils ─────────────────────────────────────────────────────────────────
   intl:                 ^0.19.0
   fl_chart:             ^0.69.0

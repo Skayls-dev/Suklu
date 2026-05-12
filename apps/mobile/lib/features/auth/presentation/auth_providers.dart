@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,8 +96,32 @@ class AuthStateNotifier extends AsyncNotifier<AuthUser?>
     notifyListeners();
   }
 
-  void _saveFcmTokenIfAuthenticated() {
-    if (kIsWeb) {
+  /// Uploads [imageBytes] to Firebase Storage and updates the profile photo URL.
+  /// Returns the new download URL.
+  Future<String> uploadProfilePhoto({
+    required Uint8List imageBytes,
+    required String extension,
+  }) async {
+    final uid = state.value?.uid;
+    if (uid == null) throw Exception('Non authentifié');
+
+    final url = await ref.read(authRepositoryProvider).uploadProfilePhoto(
+      uid: uid,
+      imageBytes: imageBytes,
+      extension: extension,
+    );
+
+    // Update local state with new photoUrl
+    final current = state.value;
+    if (current != null) {
+      state = AsyncData(current.copyWith(photoUrl: url));
+      notifyListeners();
+    }
+
+    return url;
+  }
+
+  void _saveFcmTokenIfAuthenticated() {    if (kIsWeb) {
       return;
     }
 

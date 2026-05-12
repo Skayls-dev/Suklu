@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -21,7 +24,6 @@ class AuthRepository {
 
   final FirebaseAuth      _auth;
   final FirebaseFirestore _firestore;
-
   // ── Auth state ─────────────────────────────────────────────────────────────
   Stream<AuthUser?> authStateChanges() {
     return _auth.idTokenChanges().asyncMap((firebaseUser) async {
@@ -128,6 +130,36 @@ class AuthRepository {
       await userCred.user!.getIdToken(true);
     }
     return _fetchProfile(userCred.user!.uid);
+  }
+
+  // ── Profile photo ──────────────────────────────────────────────────────────
+  Future<String> uploadProfilePhoto({
+    required String uid,
+    required Uint8List imageBytes,
+    required String extension,
+  }) async {
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('profile_photos')
+        .child('$uid.$extension');
+
+    final metadata = SettableMetadata(
+      contentType: 'image/${extension == 'jpg' ? 'jpeg' : extension}',
+      cacheControl: 'public, max-age=86400',
+    );
+
+    await ref.putData(imageBytes, metadata);
+    final downloadUrl = await ref.getDownloadURL();
+
+    // Update Firebase Auth photoURL
+    await _auth.currentUser?.updatePhotoURL(downloadUrl);
+
+    // Update Firestore profile
+    await _firestore.collection('users').doc(uid).update({
+      'photoUrl': downloadUrl,
+    });
+
+    return downloadUrl;
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
