@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -19,9 +20,19 @@ final _studentEnrollmentsProvider = StreamProvider.autoDispose<List<Map<String, 
   return fs
       .collection('group_enrollments')
       .where('studentId', isEqualTo: uid)
-      .orderBy('enrolledAt', descending: true)
       .snapshots()
-      .map((snap) => snap.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+      .map((snap) {
+        final items = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+
+        int toMillis(dynamic raw) {
+          if (raw is Timestamp) return raw.millisecondsSinceEpoch;
+          if (raw is DateTime) return raw.millisecondsSinceEpoch;
+          return 0;
+        }
+
+        items.sort((a, b) => toMillis(b['enrolledAt']).compareTo(toMillis(a['enrolledAt'])));
+        return items;
+      });
 });
 
 final _slotDetailProvider = FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((ref, slotId) async {
@@ -96,9 +107,7 @@ class MyGroupSessionsScreen extends ConsumerWidget {
             padding: AppSpacing.pagePadding,
             itemCount: enrollments.length,
             separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.md),
-            itemBuilder: (context, index) => _EnrollmentCard(
-              enrollment: enrollments[index],
-            ),
+            itemBuilder: (context, index) => _EnrollmentCard(enrollment: enrollments[index]),
           );
         },
       ),
@@ -154,6 +163,65 @@ class _EnrollmentCard extends ConsumerWidget {
         return Icons.cancel;
       default:
         return Icons.info;
+    }
+  }
+
+  void _showCancelConfirmation(BuildContext context, WidgetRef ref, String currentStatus) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Annuler l\'inscription'),
+        content: Text(
+          currentStatus == 'paid'
+              ? 'Êtes-vous sûr? Une demande de remboursement devra être traitée.'
+              : 'Êtes-vous sûr de vouloir annuler cette inscription?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Non, garder'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _cancelEnrollment(context, ref, enrollment['id'].toString(), currentStatus);
+            },
+            child: const Text('Oui, annuler'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelEnrollment(BuildContext context, WidgetRef ref, String enrollmentId, String enrollmentStatus) async {
+    final functions = FirebaseFunctions.instance;
+
+    try {
+      await functions.httpsCallable('deleteGroupEnrollment').call({
+        'enrollmentId': enrollmentId,
+      });
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Inscription annulée avec succès'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        ref.invalidate(_studentEnrollmentsProvider);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -263,6 +331,22 @@ class _EnrollmentCard extends ConsumerWidget {
                   'Inscrit le ${DateFormat('d MMM yyyy à HH:mm', 'fr_FR').format(enrolledAt)}',
                   style: const TextStyle(fontSize: 12, color: AppColors.grey600),
                 ),
+                AppSpacing.gapMd,
+
+                // Cancel button (only for pending/paid)
+                if (status == 'pending_payment' || status == 'paid')
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showCancelConfirmation(context, ref, status),
+                      icon: const Icon(Icons.cancel_outlined, size: 18),
+                      label: const Text('Annuler l\'inscription'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),

@@ -1,0 +1,36 @@
+Choix de matiere
+Objectif dans la matière (passer le concours, mapping tuteur) ==> niveaux predefinies 
+Evaluation ==> Quiz IA
+Type de cours 
+
+
+1er Niveau - Evaluation Tuteur ==> IA
+2e  Niveau - Evaluation humaine ==> (feedback, board)
+3e  Niveau - Certification pedagogique + Outils 
+
+Recorded sessions 
+Evaluation des sessions (famille) 
+Assistance ==> Agent assistant des tutors ==> aides a la generation des cours ==> aide a l'utilisation de l'outils pour etre efficace 
+
+Le RAG est personalize par Tutor ???
+Tous les contenus ==> partage de connaissance
+Le tuteur peux soumettre les documents pour le RAG
+
+Le session live ==> il donne son cours, preparation = IA (LLM + RAG)  ==> Le prompt donne la priorite au contenu RAG 
+
+Session= cours + outils + RAG 
+
+Suivi de l'eleve ==> Evaluation de l'eleve / l'outil evalue ==> lancer un quizz pendant la session ==> Resultat ==> notes 
+
+
+Choisi une session
+La matière, la classe, la partie specifique ou le chapitre
+Description du probleme  
+
+Feemium 
+
+Tuteur ne paient rien
+Eleves paient le tutor 
+ 
+
+

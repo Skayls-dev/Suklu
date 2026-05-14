@@ -35,6 +35,7 @@ import '../../features/tutor_profile/presentation/tutor_profile_edit_screen.dart
 import '../../features/student_profile/presentation/student_profile_edit_screen.dart';
 import '../../features/parent_profile/presentation/parent_profile_edit_screen.dart';
 import '../../features/marketplace/presentation/my_group_sessions_screen.dart';
+import '../../features/sessions/presentation/tutor_group_slots_management_screen.dart';
 import '../widgets/offline_banner.dart';
 import 'route_guards.dart';
 
@@ -96,6 +97,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/student/group-sessions',
             builder: (_, __) => const GroupSessionsScreen(),
           ),
+          GoRoute(path: '/student/my-group-sessions', builder: (_, __) => const MyGroupSessionsScreen()),
           GoRoute(
             path: '/student/booking/:id',
             builder: (_, s) => BookingDetailScreen(
@@ -112,7 +114,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, s) => SessionSummaryScreen(sessionId: s.pathParameters['sessionId']!),
           ),
           GoRoute(path: '/student/ai-tutor',  builder: (_, __) => const AiTutorScreen()),
-          GoRoute(path: '/student/group-sessions', builder: (_, __) => const MyGroupSessionsScreen()),
           GoRoute(path: '/student/profile/edit', builder: (_, __) => const StudentProfileEditScreen()),
           GoRoute(path: '/student/progress',  builder: (_, __) => const ProgressScreen()),
           GoRoute(path: '/student/my-reviews', builder: (_, __) => const MyReviewsScreen()),
@@ -136,6 +137,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: '/tutor/ai-tutor', builder: (_, __) => const AiTutorScreen()),
           GoRoute(path: '/tutor/profile/edit', builder: (_, __) => const TutorProfileEditScreen()),
+          GoRoute(path: '/tutor/group-slots/manage', builder: (_, __) => const TutorGroupSlotsManagementScreen()),
           GoRoute(
             path: '/tutor/session/:bookingId',
             builder: (_, s) => SessionScreen(bookingId: s.pathParameters['bookingId']!),
@@ -202,7 +204,7 @@ class _StudentShell extends ConsumerWidget {
     final loc = GoRouterState.of(context).matchedLocation;
     if (loc.startsWith('/student/booking'))   return 1;
     if (loc.startsWith('/student/marketplace')) return 2;
-    if (loc.startsWith('/student/group-sessions')) return 3;
+    if (loc.startsWith('/student/group-sessions') || loc.startsWith('/student/my-group-sessions')) return 3;
     if (loc.startsWith('/student/ai-tutor'))  return 4;
     if (loc.startsWith('/student/progress'))  return 5;
     return 0;

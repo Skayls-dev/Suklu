@@ -20,6 +20,7 @@ export { verifyParentLink }   from './linking/verifyParentLink';
 export { createDailyRoom }    from './sessions/createDailyRoom';
 export { createGroupSlot }    from './sessions/createGroupSlot';
 export { enrollInGroupSession } from './sessions/enrollInGroupSession';
+export { deleteGroupEnrollment } from './sessions/deleteGroupEnrollment';
 export { submitReview }       from './sessions/submitReview';
 export { sessionReminders }   from './sessions/sessionReminders';
 export { onTutorMessage }     from './sessions/onTutorMessage';
