@@ -17,6 +17,7 @@ export { submitApplication }  from './tutor/submitApplication';
 export { reviewApplication }  from './tutor/reviewApplication';
 export { requestParentLink }  from './linking/requestParentLink';
 export { verifyParentLink }   from './linking/verifyParentLink';
+export { getParentLinkedChildren } from './linking/getParentLinkedChildren';
 export { createDailyRoom }    from './sessions/createDailyRoom';
 export { createGroupSlot }    from './sessions/createGroupSlot';
 export { enrollInGroupSession } from './sessions/enrollInGroupSession';
